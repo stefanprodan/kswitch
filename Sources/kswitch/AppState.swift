@@ -49,13 +49,7 @@ final class AppState {
         Log.info("AppState initialized")
 
         // Start watching kubeconfig for external changes
-        _kubeconfigWatcher = KubeconfigWatcher { [weak self] in
-            guard let self else { return }
-            Task {
-                await self.handleKubeconfigChange()
-            }
-        }
-        _kubeconfigWatcher?.start()
+        setupKubeconfigWatcher()
 
         // Initialize on launch
         Task { @MainActor [weak self] in
@@ -70,6 +64,18 @@ final class AppState {
             self.startBackgroundRefresh()
             Log.info("Initialization complete")
         }
+    }
+
+    private func setupKubeconfigWatcher() {
+        _kubeconfigWatcher?.stop()
+        let kubeconfigPath = settings.effectiveKubeconfigPaths.first
+        _kubeconfigWatcher = KubeconfigWatcher(kubeconfigPath: kubeconfigPath) { [weak self] in
+            guard let self else { return }
+            Task {
+                await self.handleKubeconfigChange()
+            }
+        }
+        _kubeconfigWatcher?.start()
     }
 
     private func handleKubeconfigChange() async {
@@ -136,6 +142,9 @@ final class AppState {
             // Save settings
             let settingsData = try JSONEncoder().encode(settings)
             try settingsData.write(to: settingsFileURL)
+
+            // Restart kubeconfig watcher in case the path changed
+            setupKubeconfigWatcher()
         } catch {
             Log.error("Failed to save: \(error)")
         }

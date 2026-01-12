@@ -1,60 +1,114 @@
 import Foundation
 
+/// Provides access to shell environment and executable discovery.
+/// Used for finding CLI tools like kubectl without spawning a login shell.
 actor ShellEnvironment {
     static let shared = ShellEnvironment()
 
-    private var cachedEnv: [String: String]?
+    private var cachedPath: [String]?
+    private var cachedProtectedPaths: [String]?
 
-    func getEnvironment() async throws -> [String: String] {
-        if let cached = cachedEnv {
-            return cached
+    /// Returns environment variables for tool subprocesses.
+    /// If kubeconfig paths are provided, sets KUBECONFIG env var with colon-separated paths.
+    func getEnvironment(kubeconfigPaths: [String] = []) -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        if !kubeconfigPaths.isEmpty {
+            env["KUBECONFIG"] = kubeconfigPaths.joined(separator: ":")
         }
-
-        let shell = getUserShell()
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: shell)
-        process.arguments = ["-l", "-c", "env"]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-
-        try process.run()
-        process.waitUntilExit()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8) ?? ""
-
-        var env: [String: String] = [:]
-        for line in output.split(separator: "\n") {
-            if let idx = line.firstIndex(of: "=") {
-                let key = String(line[..<idx])
-                let value = String(line[line.index(after: idx)...])
-                env[key] = value
-            }
-        }
-
-        cachedEnv = env
         return env
     }
 
-    private func getUserShell() -> String {
-        if let shell = ProcessInfo.processInfo.environment["SHELL"], !shell.isEmpty {
-            return shell
+    /// Returns the paths of directories protected by TCC (Transparency, Consent, and Control).
+    private func getProtectedPaths() -> [String] {
+        if let cached = cachedProtectedPaths {
+            return cached
         }
-        if let pw = getpwuid(getuid()), let shellPtr = pw.pointee.pw_shell {
-            return String(cString: shellPtr)
-        }
-        return "/bin/zsh"
+
+        // We manually construct these paths to avoid triggering permission prompts
+        // by asking FileManager for them (which can interpret the request as an access attempt).
+        let home = NSHomeDirectory()
+        let paths = [
+            "\(home)/Documents",
+            "\(home)/Desktop",
+            "\(home)/Downloads"
+        ]
+
+        cachedProtectedPaths = paths
+        return paths
     }
 
-    func findExecutable(named name: String) async throws -> String? {
-        let env = try await getEnvironment()
-        let pathStr = env["PATH"] ?? ""
-        Log.debug("Searching for \(name) in PATH", category: .shell)
-        let pathDirs = pathStr.split(separator: ":").map(String.init)
+    /// Returns search paths for executables, prioritizing package managers over system paths.
+    /// Order: Homebrew, MacPorts, asdf, mise, Nix, ~/.local/bin, then /etc/paths.
+    private func getSearchPaths() -> [String] {
+        if let cached = cachedPath {
+            return cached
+        }
 
+        let home = NSHomeDirectory()
+        var paths: [String] = []
+
+        let packageManagerPaths = [
+            "/opt/homebrew/bin",                    // Homebrew (Apple Silicon)
+            "/usr/local/bin",                       // Homebrew (Intel)
+            "/opt/local/bin",                       // MacPorts
+            "\(home)/.asdf/shims",                  // asdf
+            "\(home)/.local/share/mise/shims",     // mise
+            "\(home)/.nix-profile/bin",             // Nix
+            "\(home)/.local/bin",
+        ]
+        paths.append(contentsOf: packageManagerPaths)
+
+        // Then system paths from /etc/paths
+        if let systemPaths = try? String(contentsOfFile: "/etc/paths", encoding: .utf8) {
+            for path in systemPaths.split(separator: "\n").map(String.init) {
+                if !paths.contains(path) {
+                    paths.append(path)
+                }
+            }
+        }
+
+        // Then /etc/paths.d/
+        let pathsD = "/etc/paths.d"
+        if let files = try? FileManager.default.contentsOfDirectory(atPath: pathsD) {
+            for file in files {
+                if let content = try? String(contentsOfFile: "\(pathsD)/\(file)", encoding: .utf8) {
+                    for path in content.split(separator: "\n").map(String.init) {
+                        if !paths.contains(path) {
+                            paths.append(path)
+                        }
+                    }
+                }
+            }
+        }
+
+        cachedPath = paths
+        return paths
+    }
+
+    /// Searches for an executable by name in the search paths.
+    /// Returns the full path if found, nil otherwise.
+    func findExecutable(named name: String) async throws -> String? {
+        let pathDirs = getSearchPaths()
+        let protectedPaths = getProtectedPaths()
+        
         for dir in pathDirs {
+            // Check raw path first to avoid touching file system if it's clearly protected
+            if protectedPaths.contains(where: { protected in
+                dir == protected || dir.hasPrefix(protected + "/")
+            }) {
+                continue
+            }
+
+            // Now safely resolve symlinks
+            let resolvedDir = URL(fileURLWithPath: dir).resolvingSymlinksInPath().path
+            
+            // Check resolved path
+            if protectedPaths.contains(where: { protected in
+                resolvedDir == protected || resolvedDir.hasPrefix(protected + "/")
+            }) {
+                continue
+            }
+
             let fullPath = "\(dir)/\(name)"
             if FileManager.default.isExecutableFile(atPath: fullPath) {
                 Log.debug("Found \(name) at: \(fullPath)", category: .shell)

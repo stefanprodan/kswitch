@@ -33,18 +33,17 @@ actor KubectlService {
 
     private func run(
         _ args: [String],
-        context: String? = nil,
-        kubeconfig: String? = nil
+        context: String? = nil
     ) async throws -> String {
+        let settings = settingsProvider()
         let path = try await kubectlPath()
-        let env = try await ShellEnvironment.shared.getEnvironment()
+        let env = await ShellEnvironment.shared.getEnvironment(
+            kubeconfigPaths: settings.effectiveKubeconfigPaths
+        )
 
         var fullArgs = args
         if let ctx = context {
             fullArgs = ["--context", ctx] + fullArgs
-        }
-        if let kc = kubeconfig {
-            fullArgs = ["--kubeconfig", kc] + fullArgs
         }
 
         let process = Process()

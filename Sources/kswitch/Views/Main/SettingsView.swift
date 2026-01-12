@@ -2,19 +2,31 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @State private var kubeconfigPath: String = ""
+    @State private var kubectlPath: String = ""
+    @State private var detectedKubectl: String = ""
+
+    private var defaultKubeconfig: String {
+        NSHomeDirectory() + "/.kube/config"
+    }
 
     var body: some View {
         @Bindable var state = appState
 
         Form {
             Section("Paths") {
-                LabeledContent("kubectl") {
-                    TextField("Auto-detect", text: Binding(
-                        get: { state.settings.kubectlPath ?? "" },
-                        set: { state.settings.kubectlPath = $0.isEmpty ? nil : $0 }
-                    ))
-                    .textFieldStyle(.roundedBorder)
+                VStack(alignment: .trailing, spacing: 2) {
+                    TextField("kubeconfig", text: $kubeconfigPath)
+                    pathStatus(exists: FileManager.default.fileExists(atPath: kubeconfigPath))
                 }
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    TextField("kubectl", text: $kubectlPath)
+                    pathStatus(exists: FileManager.default.fileExists(atPath: kubectlPath))
+                }
+            }
+            .onAppear {
+                loadPaths()
             }
 
             Section("Refresh") {
@@ -33,18 +45,61 @@ struct SettingsView: View {
 
             Section("Startup") {
                 Toggle("Launch at Login", isOn: $state.settings.launchAtLogin)
-
                 Toggle("Check for Updates Automatically", isOn: $state.settings.checkForUpdatesAutomatically)
             }
 
             Section {
-                Button("Save Settings") {
-                    appState.saveToDisk()
-                    appState.startBackgroundRefresh()
+                HStack {
+                    Spacer()
+                    Button("Save Settings") {
+                        saveSettings()
+                    }
                 }
             }
         }
         .formStyle(.grouped)
         .navigationTitle("Settings")
+    }
+
+    private func loadPaths() {
+        // Pre-fill with effective values (user-set OR defaults)
+        kubeconfigPath = appState.settings.kubeconfigPaths.first ?? defaultKubeconfig
+
+        // Detect kubectl and pre-fill
+        Task {
+            if let detected = try? await ShellEnvironment.shared.findExecutable(named: "kubectl") {
+                await MainActor.run {
+                    detectedKubectl = detected
+                    kubectlPath = appState.settings.kubectlPath ?? detected
+                }
+            }
+        }
+    }
+
+    private func saveSettings() {
+        // Validate paths exist
+        guard FileManager.default.fileExists(atPath: kubeconfigPath),
+              FileManager.default.fileExists(atPath: kubectlPath) else {
+            return
+        }
+
+        // Only persist if different from defaults
+        appState.settings.kubeconfigPaths = kubeconfigPath == defaultKubeconfig ? [] : [kubeconfigPath]
+        appState.settings.kubectlPath = kubectlPath == detectedKubectl ? nil : kubectlPath
+        appState.saveToDisk()
+        appState.startBackgroundRefresh()
+    }
+
+    @ViewBuilder
+    private func pathStatus(exists: Bool) -> some View {
+        if exists {
+            Text("✓ Valid")
+                .font(.caption)
+                .foregroundStyle(.green)
+        } else {
+            Text("⚠ Not found")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
     }
 }

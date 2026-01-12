@@ -2,9 +2,17 @@ import SwiftUI
 
 struct ClustersListView: View {
     @Environment(AppState.self) private var appState
-    var searchText: String = ""
+    @Binding var searchText: String
     var showFavoritesOnly: Bool = false
     var showHiddenOnly: Bool = false
+    @Binding var navigationPath: NavigationPath
+
+    init(searchText: Binding<String>, showFavoritesOnly: Bool = false, showHiddenOnly: Bool = false, navigationPath: Binding<NavigationPath>) {
+        self._searchText = searchText
+        self.showFavoritesOnly = showFavoritesOnly
+        self.showHiddenOnly = showHiddenOnly
+        self._navigationPath = navigationPath
+    }
 
     private var filteredClusters: [Cluster] {
         var clusters: [Cluster]
@@ -29,7 +37,7 @@ struct ClustersListView: View {
 
     var body: some View {
         Group {
-            if appState.isRefreshing {
+            if appState.isRefreshing && filteredClusters.isEmpty {
                 ProgressView("Loading clusters...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if filteredClusters.isEmpty {
@@ -40,19 +48,12 @@ struct ClustersListView: View {
                 }
             } else {
                 List(filteredClusters) { cluster in
-                    NavigationLink(destination: ClusterDetailView(cluster: cluster)) {
+                    NavigationLink(value: cluster) {
                         ClusterRow(cluster: cluster)
                     }
                 }
             }
         }
-        .navigationTitle(navigationTitle)
-    }
-
-    private var navigationTitle: String {
-        if showHiddenOnly { return "Hidden Clusters" }
-        if showFavoritesOnly { return "Favorites" }
-        return "All Clusters"
     }
 
     private var emptyTitle: String {
@@ -85,59 +86,78 @@ struct ClusterRow: View {
     }
 
     var body: some View {
-        HStack {
-            Circle()
-                .fill(cluster.color)
-                .frame(width: 12, height: 12)
+        VStack(alignment: .leading, spacing: 4) {
+            // First line: dot + name + star + [current badge]
+            HStack {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(cluster.effectiveName)
-                        .fontWeight(cluster.contextName == appState.currentContext ? .semibold : .regular)
-                        .foregroundStyle(cluster.isInKubeconfig ? .primary : .secondary)
+                Text(cluster.effectiveName)
+                    .fontWeight(cluster.contextName == appState.currentContext ? .semibold : .regular)
+                    .foregroundStyle(cluster.isInKubeconfig ? .primary : .secondary)
 
-                    if cluster.isFavorite {
-                        Image(systemName: "star.fill")
-                            .foregroundStyle(.yellow)
-                            .font(.caption)
-                    }
+                Image(systemName: cluster.isFavorite ? "star.fill" : "star")
+                    .foregroundStyle(cluster.isFavorite ? .yellow : .secondary)
+                    .font(.system(size: 12))
 
-                    if cluster.contextName == appState.currentContext {
-                        Text("Current")
-                            .font(.caption)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.blue.opacity(0.2))
-                            .foregroundStyle(.blue)
-                            .clipShape(Capsule())
-                    }
-                }
+                Spacer()
 
-                if let status = status {
-                    HStack(spacing: 8) {
-                        if let version = status.kubernetesVersion {
-                            Text(version)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let nodes = status.nodeCount {
-                            Text("\(nodes) nodes")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                if cluster.contextName == appState.currentContext {
+                    Text("Current")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.blue.opacity(0.2))
+                        .foregroundStyle(.blue)
+                        .clipShape(Capsule())
                 }
             }
 
-            Spacer()
-
-            // Status indicator
-            if let status = status {
-                StatusIndicator(status: status.statusColor)
-            }
+            // Second line: status text (indented to align with name)
+            Text(statusText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 14)
         }
         .padding(.vertical, 4)
         .opacity(cluster.isInKubeconfig ? 1 : 0.5)
     }
+
+    private var statusColor: Color {
+        guard let status = status else { return .gray }
+        switch status.statusColor {
+        case .green: return .green
+        case .yellow: return .yellow
+        case .red: return .red
+        case .gray: return .gray
+        }
+    }
+
+    private var statusText: String {
+        guard let status = status else { return "—" }
+
+        // Build version/nodes string if available
+        var parts: [String] = []
+        if let version = status.kubernetesVersion {
+            parts.append(version)
+        }
+        if let nodes = status.nodeCount {
+            parts.append("\(nodes) \(nodes == 1 ? "node" : "nodes")")
+        }
+        let previousInfo = parts.isEmpty ? nil : parts.joined(separator: " · ")
+
+        switch status.reachability {
+        case .unknown:
+            return "—"
+        case .checking:
+            // Show previous info if available, otherwise show Checking...
+            return previousInfo ?? "Checking..."
+        case .unreachable:
+            return "Unreachable"
+        case .reachable:
+            return previousInfo ?? "Connected"
+        }
+    }
+
 }

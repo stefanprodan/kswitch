@@ -1,40 +1,52 @@
 import SwiftUI
 
+enum SidebarItem: String, Hashable, CaseIterable {
+    case favorites
+    case allClusters
+    case hidden
+    case settings
+
+    var title: String {
+        switch self {
+        case .favorites: return "Favorites"
+        case .allClusters: return "All Clusters"
+        case .hidden: return "Hidden"
+        case .settings: return "Settings"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .favorites: return "star.fill"
+        case .allClusters: return "square.stack.3d.up"
+        case .hidden: return "eye.slash"
+        case .settings: return "gearshape"
+        }
+    }
+}
+
 struct Sidebar: View {
     @Environment(AppState.self) private var appState
-    var searchText: String
+    @Binding var selection: SidebarItem?
 
     var body: some View {
-        List {
-            NavigationLink(destination: ClustersListView(
-                searchText: searchText,
-                showFavoritesOnly: true
-            )) {
-                Label("Favorites", systemImage: "star.fill")
-                    .badge(appState.favoriteClusters.count)
-            }
+        List(selection: $selection) {
+            Label("All Clusters", systemImage: "square.stack.3d.up")
+                .badge(appState.visibleClusters.count)
+                .tag(SidebarItem.allClusters)
 
-            NavigationLink(destination: ClustersListView(
-                searchText: searchText,
-                showFavoritesOnly: false
-            )) {
-                Label("All Clusters", systemImage: "square.stack.3d.up")
-                    .badge(appState.visibleClusters.count)
-            }
+            Label("Favorites", systemImage: "star.fill")
+                .badge(appState.favoriteClusters.count)
+                .tag(SidebarItem.favorites)
 
-            NavigationLink(destination: ClustersListView(
-                searchText: searchText,
-                showHiddenOnly: true
-            )) {
-                Label("Hidden", systemImage: "eye.slash")
-                    .badge(appState.hiddenClusters.count)
-            }
+            Label("Hidden", systemImage: "eye.slash")
+                .badge(appState.hiddenClusters.count)
+                .tag(SidebarItem.hidden)
 
             Divider()
 
-            NavigationLink(destination: SettingsView()) {
-                Label("Settings", systemImage: "gearshape")
-            }
+            Label("Settings", systemImage: "gearshape")
+                .tag(SidebarItem.settings)
         }
         .listStyle(.sidebar)
         .navigationSplitViewColumnWidth(min: 180, ideal: 200)

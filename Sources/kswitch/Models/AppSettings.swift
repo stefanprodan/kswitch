@@ -18,22 +18,10 @@ struct AppSettings: Codable, Equatable {
     )
 
     var effectiveKubeconfigPaths: [String] {
-        var paths = kubeconfigPaths
-
-        // Respect KUBECONFIG environment variable
-        if let envKubeconfig = ProcessInfo.processInfo.environment["KUBECONFIG"], !envKubeconfig.isEmpty {
-            let envPaths = envKubeconfig.split(separator: ":").map(String.init)
-            paths.append(contentsOf: envPaths)
+        if !kubeconfigPaths.isEmpty {
+            return kubeconfigPaths
         }
-
-        // Add default kubeconfig if no paths specified
-        if paths.isEmpty {
-            let defaultPath = NSHomeDirectory() + "/.kube/config"
-            if FileManager.default.fileExists(atPath: defaultPath) {
-                paths.append(defaultPath)
-            }
-        }
-
-        return paths
+        // Default to ~/.kube/config
+        return [NSHomeDirectory() + "/.kube/config"]
     }
 }

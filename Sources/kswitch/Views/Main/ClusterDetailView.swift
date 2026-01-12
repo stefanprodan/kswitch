@@ -9,110 +9,135 @@ struct ClusterDetailView: View {
         appState.clusterStatuses[cluster.contextName]
     }
 
+    // Get current cluster from AppState to reflect live changes
+    private var currentCluster: Cluster {
+        appState.clusters.first { $0.contextName == cluster.contextName } ?? cluster
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header
-                headerSection
+        Group {
+            if status == nil {
+                // Full page loader - no data yet
+                ProgressView("Loading cluster status...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        headerSection
 
-                Divider()
+                        Divider()
 
-                // Kubernetes Info
-                if let status = status {
-                    kubernetesInfoSection(status: status)
+                        kubernetesInfoSection(status: status!)
 
-                    Divider()
+                        Divider()
 
-                    // Flux Info
-                    fluxInfoSection(status: status)
+                        fluxInfoSection(status: status!)
+
+                        if status!.fluxReport?.sync != nil {
+                            Divider()
+
+                            fluxSyncSection(status: status!)
+                        }
+
+                        Spacer()
+                    }
+                    .padding()
                 }
+            }
+        }
+        .navigationTitle(currentCluster.effectiveName)
+        .toolbar {
+            ToolbarItem {
+                Text("Cluster")
+                    .font(.headline)
+            }
 
+            ToolbarItem(id: "detail-flexible-space") {
                 Spacer()
             }
-            .padding()
-        }
-        .navigationTitle(cluster.effectiveName)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingEditSheet = true
-                } label: {
-                    Label("Edit", systemImage: "pencil")
-                }
-            }
 
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task { await appState.switchContext(to: cluster.contextName) }
-                } label: {
-                    Label("Switch to Context", systemImage: "arrow.triangle.swap")
-                }
-                .disabled(cluster.contextName == appState.currentContext || !cluster.isInKubeconfig)
-            }
-
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem {
                 Button {
                     Task { await appState.refreshStatus(for: cluster.contextName) }
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Image(systemName: "arrow.clockwise")
                 }
+                .buttonStyle(.borderless)
                 .disabled(!cluster.isInKubeconfig)
             }
         }
         .sheet(isPresented: $showingEditSheet) {
-            ClusterEditSheet(cluster: cluster)
+            ClusterEditSheet(cluster: currentCluster)
+        }
+        .task {
+            // Refresh status when view appears (needed for hidden clusters that are skipped in refreshAllStatuses)
+            if status == nil {
+                await appState.refreshStatus(for: cluster.contextName)
+            }
         }
     }
 
     @ViewBuilder
     private var headerSection: some View {
-        HStack(spacing: 16) {
-            Circle()
-                .fill(cluster.color)
-                .frame(width: 40, height: 40)
+        VStack(alignment: .leading, spacing: 16) {
+            // Cluster info row
+            HStack(spacing: 12) {
+                // Colored icon instead of color dot
+                Image(systemName: "cube.fill")
+                    .font(.system(size: 32))
+                    .foregroundStyle(currentCluster.color)
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(cluster.effectiveName)
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Button {
+                            showingEditSheet = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "pencil")
+                                    .foregroundStyle(.secondary)
+                                Text(currentCluster.effectiveName)
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                        .buttonStyle(.plain)
 
-                    if cluster.isFavorite {
-                        Image(systemName: "star.fill")
-                            .foregroundStyle(.yellow)
+                        Button {
+                            var updated = currentCluster
+                            updated.isFavorite.toggle()
+                            appState.updateCluster(updated)
+                        } label: {
+                            Image(systemName: currentCluster.isFavorite ? "star.fill" : "star")
+                                .foregroundStyle(currentCluster.isFavorite ? .yellow : .secondary)
+                        }
+                        .buttonStyle(.plain)
+
+                        if cluster.contextName == appState.currentContext {
+                            Text("Current")
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.blue.opacity(0.2))
+                                .foregroundStyle(.blue)
+                                .clipShape(Capsule())
+                        }
+
+                        if !cluster.isInKubeconfig {
+                            Text("Removed")
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.red.opacity(0.2))
+                                .foregroundStyle(.red)
+                                .clipShape(Capsule())
+                        }
                     }
 
-                    if cluster.contextName == appState.currentContext {
-                        Text("Current")
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.blue.opacity(0.2))
-                            .foregroundStyle(.blue)
-                            .clipShape(Capsule())
-                    }
-
-                    if !cluster.isInKubeconfig {
-                        Text("Removed")
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.red.opacity(0.2))
-                            .foregroundStyle(.red)
-                            .clipShape(Capsule())
-                    }
+                    Text(cluster.contextName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-
-                Text(cluster.contextName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            if let status = status {
-                StatusIndicator(status: status.statusColor)
-                    .scaleEffect(1.5)
             }
         }
     }
@@ -127,7 +152,7 @@ struct ClusterDetailView: View {
                 GridRow {
                     Text("Status")
                         .foregroundStyle(.secondary)
-                    reachabilityText(status.reachability)
+                    reachabilityText(status)
                 }
 
                 if let version = status.kubernetesVersion {
@@ -145,14 +170,6 @@ struct ClusterDetailView: View {
                         Text("\(nodes)")
                     }
                 }
-
-                if let lastChecked = status.lastChecked {
-                    GridRow {
-                        Text("Last Checked")
-                            .foregroundStyle(.secondary)
-                        Text(lastChecked.formatted(.relative(presentation: .named)))
-                    }
-                }
             }
         }
     }
@@ -163,105 +180,142 @@ struct ClusterDetailView: View {
             Text("Flux")
                 .font(.headline)
 
-            switch status.fluxOperator {
-            case .notInstalled:
-                Text("Flux Operator not installed")
-                    .foregroundStyle(.secondary)
+            // If we have summary data, always show it (even during refresh)
+            if let summary = status.fluxSummary {
+                fluxSummaryGrid(summary: summary)
+            } else {
+                // No previous data - show status based on operator state
+                switch status.fluxOperator {
+                case .notInstalled:
+                    Text("Flux Operator not installed")
+                        .foregroundStyle(.secondary)
 
-            case .installed(let version, let healthy):
-                fluxDetailsGrid(version: version, healthy: healthy, status: status)
+                case .installed, .degraded:
+                    // Shouldn't happen if we have no summary, but handle it
+                    Text("Loading...")
+                        .foregroundStyle(.secondary)
 
-            case .degraded(let version, let failing):
-                fluxDetailsGrid(version: version, healthy: false, failing: failing, status: status)
+                case .checking:
+                    ProgressView("Checking Flux status...")
 
-            case .checking:
-                ProgressView("Checking Flux status...")
-
-            case .unknown:
-                Text("Status unknown")
-                    .foregroundStyle(.secondary)
+                case .unknown:
+                    Text("Status unknown")
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
 
     @ViewBuilder
-    private func fluxDetailsGrid(version: String, healthy: Bool, failing: Int = 0, status: ClusterStatus) -> some View {
+    private func fluxSyncSection(status: ClusterStatus) -> some View {
+        if let sync = status.fluxReport?.sync {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Flux Sync")
+                    .font(.headline)
+
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Status")
+                            .foregroundStyle(.secondary)
+                        HStack {
+                            if sync.ready {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("Ready")
+                            } else {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.red)
+                                Text("Not Ready")
+                            }
+                        }
+                    }
+
+                    if let source = sync.source {
+                        GridRow {
+                            Text("Source")
+                                .foregroundStyle(.secondary)
+                            Text(source)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                    }
+
+                    if let path = sync.path {
+                        GridRow {
+                            Text("Path")
+                                .foregroundStyle(.secondary)
+                            Text(path)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                    }
+
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func fluxSummaryGrid(summary: FluxReportSummary) -> some View {
         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+            // Status first (renamed from Health)
+            GridRow {
+                Text("Status")
+                    .foregroundStyle(.secondary)
+                HStack {
+                    if summary.totalFailing == 0 {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Healthy")
+                    } else {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                        Text("\(summary.totalFailing) failing")
+                    }
+                }
+            }
+
             GridRow {
                 Text("Distribution")
                     .foregroundStyle(.secondary)
-                Text(version)
+                Text(summary.distributionVersion)
             }
 
-            if let summary = status.fluxSummary {
-                GridRow {
-                    Text("Operator")
-                        .foregroundStyle(.secondary)
-                    Text(summary.operatorVersion)
-                }
+            GridRow {
+                Text("Operator")
+                    .foregroundStyle(.secondary)
+                Text(summary.operatorVersion)
+            }
 
-                GridRow {
-                    Text("Health")
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        if healthy {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                            Text("Healthy")
-                        } else {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.yellow)
-                            Text("\(failing) failing")
-                        }
-                    }
-                }
-
-                GridRow {
-                    Text("Running")
-                        .foregroundStyle(.secondary)
-                    Text("\(summary.totalRunning)")
-                }
-
-                if summary.totalSuspended > 0 {
-                    GridRow {
-                        Text("Suspended")
-                            .foregroundStyle(.secondary)
-                        Text("\(summary.totalSuspended)")
-                    }
-                }
-
-                if let syncPath = summary.syncPath {
-                    GridRow {
-                        Text("Sync Path")
-                            .foregroundStyle(.secondary)
-                        Text(syncPath)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                }
+            GridRow {
+                Text("Controllers")
+                    .foregroundStyle(.secondary)
+                Text("\(summary.componentsTotal)")
             }
         }
     }
 
     @ViewBuilder
-    private func reachabilityText(_ reachability: ClusterStatus.Reachability) -> some View {
-        switch reachability {
+    private func reachabilityText(_ status: ClusterStatus) -> some View {
+        switch status.reachability {
         case .reachable:
             HStack {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
+                    .frame(width: 14, height: 14)
                 Text("Reachable")
             }
         case .unreachable(let error):
             HStack {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.red)
+                    .frame(width: 14, height: 14)
                 Text("Unreachable")
             }
             .help(error)
         case .checking:
             HStack {
                 ProgressView()
-                    .scaleEffect(0.7)
+                    .controlSize(.small)
+                    .frame(width: 14, height: 14)
                 Text("Checking...")
             }
         case .unknown:

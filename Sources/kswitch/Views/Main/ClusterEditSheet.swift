@@ -40,15 +40,6 @@ struct ClusterEditSheet: View {
 
                     Toggle("Hidden from Menu Bar", isOn: $isHidden)
                 }
-
-                Section {
-                    LabeledContent("Context Name") {
-                        Text(cluster.contextName)
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
-                }
             }
             .formStyle(.grouped)
         }

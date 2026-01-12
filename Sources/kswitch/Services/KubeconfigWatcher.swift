@@ -6,13 +6,18 @@ final class KubeconfigWatcher {
     private var source: DispatchSourceFileSystemObject?
     private var debounceTask: Task<Void, Never>?
     private let onChange: @MainActor () -> Void
+    private let customPath: String?
 
     private var kubeconfigURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        if let custom = customPath, !custom.isEmpty {
+            return URL(fileURLWithPath: custom)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".kube/config")
     }
 
-    init(onChange: @escaping @MainActor () -> Void) {
+    init(kubeconfigPath: String? = nil, onChange: @escaping @MainActor () -> Void) {
+        self.customPath = kubeconfigPath
         self.onChange = onChange
     }
 
