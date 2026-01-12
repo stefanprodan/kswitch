@@ -60,6 +60,22 @@ setup-signing:
 sign-notarize:
 	@./Scripts/sign-and-notarize.sh
 
+## logs: Show last 100 app logs
+logs:
+	@log show --predicate 'subsystem BEGINSWITH "com.stefanprodan.kswitch"' --style compact --debug | tail -n 100
+
+## logs-stream: Stream app logs in real-time
+logs-stream:
+	@log stream --predicate 'subsystem BEGINSWITH "com.stefanprodan.kswitch"' --style compact --debug
+
+## print-clusters: Print saved clusters.json
+print-clusters:
+	@cat ~/Library/Application\ Support/KSwitch/clusters.json | jq .
+
+## print-settings: Print saved settings.json
+print-settings:
+	@cat ~/Library/Application\ Support/KSwitch/settings.json | jq .
+
 ## help: Show this help message
 help:
 	@echo "Usage: make [target]"

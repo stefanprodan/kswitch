@@ -1,0 +1,47 @@
+import SwiftUI
+
+@main
+struct KSwitchApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var appState = AppState()
+
+    var body: some Scene {
+        // Menu bar
+        MenuBarExtra {
+            MenuBarView()
+                .environment(appState)
+        } label: {
+            MenuBarIcon(appState: appState)
+        }
+        .menuBarExtraStyle(.menu)
+
+        // Main window
+        WindowGroup(id: "main") {
+            MainWindow()
+                .environment(appState)
+                .onAppear {
+                    // Show in Dock when window opens
+                    NSApp.setActivationPolicy(.regular)
+                }
+                .onDisappear {
+                    // Hide from Dock when window closes
+                    NSApp.setActivationPolicy(.accessory)
+                }
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultSize(width: 800, height: 600)
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+        }
+    }
+}
+
+// App delegate for startup configuration
+@MainActor
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Start as menu bar only (no dock icon)
+        NSApp.setActivationPolicy(.accessory)
+    }
+}

@@ -63,3 +63,9 @@ fastlane/test_output
 
 # Built app bundle
 *.app/
+
+# Temporary files
+tmp/
+
+# AI files
+plans/
