@@ -13,6 +13,8 @@ final class AppState {
     var clusterStatuses: [String: ClusterStatus] = [:]
     var isRefreshing: Bool = false
     var error: String?
+    var pendingClusterNavigation: Cluster?
+    var pendingSettingsNavigation: Bool = false
 
     // Background refresh
     private var refreshTask: Task<Void, Never>?

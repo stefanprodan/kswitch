@@ -13,10 +13,10 @@ struct KSwitchApp: App {
         } label: {
             MenuBarIcon(appState: appState)
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
 
-        // Main window
-        WindowGroup(id: "main") {
+        // Main window (single instance)
+        Window("KSwitch", id: "main") {
             MainWindow()
                 .environment(appState)
                 .onAppear {

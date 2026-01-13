@@ -68,24 +68,6 @@ struct MainWindow: View {
                 }
             }
         }
-        .safeAreaInset(edge: .top) {
-            // Error banner
-            if let error = appState.error {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.yellow)
-                    Text(error)
-                        .lineLimit(2)
-                    Spacer()
-                    Button("Dismiss") {
-                        appState.error = nil
-                    }
-                    .buttonStyle(.borderless)
-                }
-                .padding(8)
-                .background(.red.opacity(0.1))
-            }
-        }
         .task {
             await appState.refreshAllStatuses()
         }
@@ -94,32 +76,111 @@ struct MainWindow: View {
             isSearching = false
             searchText = ""
         }
+        .task(id: appState.pendingClusterNavigation?.id) {
+            if let cluster = appState.pendingClusterNavigation {
+                appState.pendingClusterNavigation = nil
+                selectedItem = .allClusters
+                navigationPath = NavigationPath()
+                navigationPath.append(cluster)
+            }
+        }
+        .onChange(of: appState.pendingSettingsNavigation) {
+            if appState.pendingSettingsNavigation {
+                appState.pendingSettingsNavigation = false
+                selectedItem = .settings
+                navigationPath = NavigationPath()
+            }
+        }
     }
 
     @ViewBuilder
     private var detailView: some View {
-        switch selectedItem {
-        case .favorites:
-            ClustersListView(
-                searchText: $searchText,
-                showFavoritesOnly: true,
-                navigationPath: $navigationPath
-            )
-        case .allClusters, .none:
-            ClustersListView(
-                searchText: $searchText,
-                showFavoritesOnly: false,
-                navigationPath: $navigationPath
-            )
-        case .hidden:
-            ClustersListView(
-                searchText: $searchText,
-                showHiddenOnly: true,
-                navigationPath: $navigationPath
-            )
-        case .settings:
+        if selectedItem == .settings {
             SettingsView()
+        } else if let error = appState.error {
+            errorStateView(message: error)
+        } else if appState.clusters.isEmpty {
+            emptyStateView
+        } else {
+            switch selectedItem {
+            case .favorites:
+                ClustersListView(
+                    searchText: $searchText,
+                    showFavoritesOnly: true,
+                    navigationPath: $navigationPath
+                )
+            case .allClusters, .none:
+                ClustersListView(
+                    searchText: $searchText,
+                    showFavoritesOnly: false,
+                    navigationPath: $navigationPath
+                )
+            case .hidden:
+                ClustersListView(
+                    searchText: $searchText,
+                    showHiddenOnly: true,
+                    navigationPath: $navigationPath
+                )
+            case .settings:
+                SettingsView()
+            }
         }
+    }
+
+    @ViewBuilder
+    private func errorStateView(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(.yellow)
+
+            Text("Configuration Error")
+                .font(.title2.weight(.semibold))
+
+            Text(message)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+
+            HStack(spacing: 12) {
+                Button("Dismiss") {
+                    appState.error = nil
+                }
+                .buttonStyle(.bordered)
+
+                Button("Open Settings") {
+                    selectedItem = .settings
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "cube.transparent")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+
+            Text("No Clusters Found")
+                .font(.title2.weight(.semibold))
+
+            Text("No Kubernetes contexts found in your kubeconfig file. Check your settings to configure the correct path.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+
+            Button("Open Settings") {
+                selectedItem = .settings
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var currentTitle: String {
