@@ -9,8 +9,20 @@ struct SettingsView: View {
         NSHomeDirectory() + "/.kube/config"
     }
 
+    private var kubeconfigPaths: [String] {
+        kubeconfigPath
+            .split(separator: ":")
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var validKubeconfigCount: Int {
+        kubeconfigPaths.filter { FileManager.default.fileExists(atPath: $0) }.count
+    }
+
     private var canSavePaths: Bool {
-        FileManager.default.fileExists(atPath: kubeconfigPath) &&
+        !kubeconfigPaths.isEmpty &&
+        validKubeconfigCount > 0 &&
         FileManager.default.fileExists(atPath: kubectlPath)
     }
 
@@ -21,7 +33,8 @@ struct SettingsView: View {
             Section("Paths") {
                 VStack(alignment: .trailing, spacing: 2) {
                     TextField("kubeconfig", text: $kubeconfigPath)
-                    pathStatus(exists: FileManager.default.fileExists(atPath: kubeconfigPath))
+                        .help("Colon-separated paths (e.g. ~/.kube/config:~/.kube/work)")
+                    kubeconfigStatus
                 }
 
                 VStack(alignment: .trailing, spacing: 2) {
@@ -78,7 +91,8 @@ struct SettingsView: View {
     }
 
     private func loadPaths() {
-        kubeconfigPath = appState.settings.kubeconfigPaths.first ?? defaultKubeconfig
+        let paths = appState.settings.kubeconfigPaths
+        kubeconfigPath = paths.isEmpty ? defaultKubeconfig : paths.joined(separator: ":")
 
         Task {
             if let detected = try? await ShellEnvironment.shared.findExecutable(named: "kubectl") {
@@ -92,10 +106,36 @@ struct SettingsView: View {
     private func savePaths() {
         guard canSavePaths else { return }
 
-        appState.settings.kubeconfigPaths = kubeconfigPath.isEmpty ? [] : [kubeconfigPath]
+        appState.settings.kubeconfigPaths = kubeconfigPaths
         appState.settings.kubectlPath = kubectlPath.isEmpty ? nil : kubectlPath
         appState.saveToDisk()
         appState.startBackgroundRefresh()
+    }
+
+    @ViewBuilder
+    private var kubeconfigStatus: some View {
+        let total = kubeconfigPaths.count
+        let valid = validKubeconfigCount
+
+        if total == 0 {
+            Text("⚠ No paths specified")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        } else if valid == total {
+            if total == 1 {
+                Text("✓ Valid")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            } else {
+                Text("✓ All \(total) paths valid (first path watched)")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            }
+        } else {
+            Text("⚠ \(valid) of \(total) paths valid")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
     }
 
     @ViewBuilder

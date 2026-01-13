@@ -57,6 +57,18 @@ struct ClusterDetailView: View {
                 Spacer()
             }
 
+            if !cluster.isInKubeconfig {
+                ToolbarItem {
+                    Button {
+                        appState.deleteCluster(cluster)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Delete cluster from saved list")
+                }
+            }
+
             ToolbarItem {
                 Button {
                     showingEditSheet = true
@@ -101,8 +113,8 @@ struct ClusterDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Cluster info row
             HStack(spacing: 12) {
-                // Colored icon instead of color dot
-                Image(systemName: "cube.fill")
+                // Kubernetes helm icon
+                Image(systemName: "helm")
                     .font(.system(size: 32))
                     .foregroundStyle(currentCluster.color)
 

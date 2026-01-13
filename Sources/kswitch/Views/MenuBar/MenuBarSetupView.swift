@@ -12,8 +12,15 @@ struct MenuBarSetupView: View {
         NSHomeDirectory() + "/.kube/config"
     }
 
-    private var kubeconfigExists: Bool {
-        FileManager.default.fileExists(atPath: kubeconfigPath)
+    private var kubeconfigPaths: [String] {
+        kubeconfigPath
+            .split(separator: ":")
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var validKubeconfigCount: Int {
+        kubeconfigPaths.filter { FileManager.default.fileExists(atPath: $0) }.count
     }
 
     private var kubectlExists: Bool {
@@ -21,7 +28,7 @@ struct MenuBarSetupView: View {
     }
 
     private var canSave: Bool {
-        kubeconfigExists && kubectlExists && !isLoading
+        !kubeconfigPaths.isEmpty && validKubeconfigCount > 0 && kubectlExists && !isLoading
     }
 
     var body: some View {
@@ -77,9 +84,37 @@ struct MenuBarSetupView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()
-                pathIndicator(exists: kubeconfigExists)
+                kubeconfigIndicator
             }
             pathTextField(text: $kubeconfigPath)
+        }
+    }
+
+    @ViewBuilder
+    private var kubeconfigIndicator: some View {
+        let total = kubeconfigPaths.count
+        let valid = validKubeconfigCount
+
+        if total == 0 {
+            pathIndicator(exists: false)
+        } else if valid == total {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(.green)
+                    .frame(width: 6, height: 6)
+                Text(total == 1 ? "Valid" : "\(total) paths")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(.orange)
+                    .frame(width: 6, height: 6)
+                Text("\(valid)/\(total) valid")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -215,7 +250,8 @@ struct MenuBarSetupView: View {
     }
 
     private func loadPaths() {
-        kubeconfigPath = appState.settings.kubeconfigPaths.first ?? defaultKubeconfig
+        let paths = appState.settings.kubeconfigPaths
+        kubeconfigPath = paths.isEmpty ? defaultKubeconfig : paths.joined(separator: ":")
 
         // Only auto-detect kubectl if no path is configured
         if let configuredKubectl = appState.settings.kubectlPath {
@@ -255,7 +291,7 @@ struct MenuBarSetupView: View {
         appState.error = nil
 
         // Save settings
-        appState.settings.kubeconfigPaths = kubeconfigPath.isEmpty ? [] : [kubeconfigPath]
+        appState.settings.kubeconfigPaths = kubeconfigPaths
         appState.settings.kubectlPath = kubectlPath.isEmpty ? nil : kubectlPath
         appState.saveToDisk()
 

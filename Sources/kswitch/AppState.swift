@@ -365,6 +365,12 @@ final class AppState {
         }
     }
 
+    func deleteCluster(_ cluster: Cluster) {
+        clusters.removeAll { $0.id == cluster.id }
+        clusterStatuses.removeValue(forKey: cluster.contextName)
+        saveToDisk()
+    }
+
     func cluster(for contextName: String) -> Cluster? {
         clusters.first { $0.contextName == contextName }
     }

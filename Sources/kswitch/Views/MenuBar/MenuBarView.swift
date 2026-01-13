@@ -32,6 +32,11 @@ struct MenuBarView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
                     .padding(.bottom, 12)
+            } else {
+                noContextSection
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 12)
             }
 
             Divider()
@@ -188,6 +193,35 @@ struct MenuBarView: View {
         }
         .padding(12)
         .clusterCard()
+    }
+
+    private var noContextSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("No context selected")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                Spacer()
+            }
+
+            Text("Select a cluster from the list below")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark
+                    ? Color.white.opacity(0.05)
+                    : Color.black.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(colorScheme == .dark
+                    ? Color.white.opacity(0.1)
+                    : Color.black.opacity(0.05), lineWidth: 1)
+        )
     }
 
     // MARK: - Status Dot
