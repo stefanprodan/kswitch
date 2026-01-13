@@ -39,33 +39,52 @@ struct ClusterDetailView: View {
                             fluxSyncSection(status: status!)
                         }
 
+                        if let reconcilers = status!.fluxReport?.reconcilers, !reconcilers.isEmpty {
+                            Divider()
+
+                            fluxReconcilersSection(reconcilers: reconcilers)
+                        }
+
                         Spacer()
                     }
                     .padding()
                 }
             }
         }
-        .navigationTitle(currentCluster.effectiveName)
+        .navigationTitle("Cluster")
         .toolbar {
-            ToolbarItem {
-                Text("Cluster")
-                    .font(.headline)
-            }
-
             ToolbarItem(id: "detail-flexible-space") {
                 Spacer()
             }
 
             ToolbarItem {
                 Button {
-                    Task { await appState.refreshStatus(for: cluster.contextName) }
+                    showingEditSheet = true
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    Image(systemName: "pencil")
                 }
                 .buttonStyle(.borderless)
-                .disabled(!cluster.isInKubeconfig)
+                .help("Edit cluster")
+            }
+
+            ToolbarItem {
+                Button {
+                    Task { await appState.refreshStatus(for: cluster.contextName) }
+                } label: {
+                    if status?.reachability == .checking {
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .frame(width: 16, height: 16)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(.borderless)
+                .disabled(!cluster.isInKubeconfig || status?.reachability == .checking)
+                .help("Refresh cluster status")
             }
         }
+        .toolbarBackground(.visible, for: .windowToolbar)
         .sheet(isPresented: $showingEditSheet) {
             ClusterEditSheet(cluster: currentCluster)
         }
@@ -89,19 +108,9 @@ struct ClusterDetailView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Button {
-                            showingEditSheet = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "pencil")
-                                    .foregroundStyle(.secondary)
-                                Text(currentCluster.effectiveName)
-                                    .font(.title3)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.primary)
-                            }
-                        }
-                        .buttonStyle(.plain)
+                        Text(currentCluster.effectiveName)
+                            .font(.title3)
+                            .fontWeight(.semibold)
 
                         Button {
                             var updated = currentCluster
@@ -137,6 +146,7 @@ struct ClusterDetailView: View {
                     Text(cluster.contextName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
                 }
             }
         }
@@ -160,6 +170,7 @@ struct ClusterDetailView: View {
                         Text("Version")
                             .foregroundStyle(.secondary)
                         Text(version)
+                            .textSelection(.enabled)
                     }
                 }
 
@@ -168,6 +179,7 @@ struct ClusterDetailView: View {
                         Text("Nodes")
                             .foregroundStyle(.secondary)
                         Text("\(nodes)")
+                            .textSelection(.enabled)
                     }
                 }
             }
@@ -235,7 +247,7 @@ struct ClusterDetailView: View {
                             Text("Source")
                                 .foregroundStyle(.secondary)
                             Text(source)
-                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
                         }
                     }
 
@@ -244,12 +256,72 @@ struct ClusterDetailView: View {
                             Text("Path")
                                 .foregroundStyle(.secondary)
                             Text(path)
-                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
                         }
                     }
 
+                    if let message = sync.status, !message.isEmpty {
+                        GridRow {
+                            Text("Message")
+                                .foregroundStyle(.secondary)
+                                .alignmentGuide(.top) { _ in 0 }
+                            Text(message)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func fluxReconcilersSection(reconcilers: [FluxReconciler]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Flux Reconcilers")
+                .font(.headline)
+
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                // Header row
+                GridRow {
+                    Text("Kind")
+                        .fontWeight(.medium)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Running")
+                        .fontWeight(.medium)
+                    Text("Failing")
+                        .fontWeight(.medium)
+                    Text("Suspended")
+                        .fontWeight(.medium)
+                }
+                .foregroundStyle(.secondary)
+
+                Divider()
+                    .gridCellUnsizedAxes(.horizontal)
+
+                ForEach(reconcilers, id: \.kind) { reconciler in
+                    GridRow {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(reconciler.kind)
+                                .textSelection(.enabled)
+                            Text(reconciler.apiVersion)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("\(reconciler.stats.running)")
+                            .textSelection(.enabled)
+                        Text("\(reconciler.stats.failing)")
+                            .foregroundStyle(reconciler.stats.failing > 0 ? .red : .primary)
+                            .textSelection(.enabled)
+                        Text("\(reconciler.stats.suspended)")
+                            .foregroundStyle(reconciler.stats.suspended > 0 ? .orange : .primary)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -277,18 +349,21 @@ struct ClusterDetailView: View {
                 Text("Distribution")
                     .foregroundStyle(.secondary)
                 Text(summary.distributionVersion)
+                    .textSelection(.enabled)
             }
 
             GridRow {
                 Text("Operator")
                     .foregroundStyle(.secondary)
                 Text(summary.operatorVersion)
+                    .textSelection(.enabled)
             }
 
             GridRow {
                 Text("Controllers")
                     .foregroundStyle(.secondary)
                 Text("\(summary.componentsTotal)")
+                    .textSelection(.enabled)
             }
         }
     }
@@ -301,22 +376,32 @@ struct ClusterDetailView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .frame(width: 14, height: 14)
-                Text("Reachable")
+                Text("Online")
             }
         case .unreachable(let error):
             HStack {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.red)
                     .frame(width: 14, height: 14)
-                Text("Unreachable")
+                Text("Offline")
             }
             .help(error)
         case .checking:
-            HStack {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 14, height: 14)
-                Text("Checking...")
+            // Show previous state if we have data, otherwise show checking
+            if status.kubernetesVersion != nil {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .frame(width: 14, height: 14)
+                    Text("Online")
+                }
+            } else {
+                HStack {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 14, height: 14)
+                    Text("Checking...")
+                }
             }
         case .unknown:
             Text("Unknown")

@@ -13,7 +13,6 @@ actor KubectlService {
     private func kubectlPath() async throws -> String {
         let settings = settingsProvider()
         if let configured = settings.kubectlPath, !configured.isEmpty {
-            Log.debug("Using configured kubectl path: \(configured)", category: .kubectl)
             return configured
         }
 
@@ -33,7 +32,8 @@ actor KubectlService {
 
     private func run(
         _ args: [String],
-        context: String? = nil
+        context: String? = nil,
+        logErrors: Bool = true
     ) async throws -> String {
         let settings = settingsProvider()
         let path = try await kubectlPath()
@@ -75,8 +75,11 @@ actor KubectlService {
 
                     guard process.terminationStatus == 0 else {
                         let errMsg = String(data: errData, encoding: .utf8) ?? "Unknown error"
-                        Log.error("kubectl failed: \(errMsg.trimmingCharacters(in: .whitespacesAndNewlines))", category: .kubectl)
-                        continuation.resume(throwing: KSwitchError.kubectlFailed(errMsg.trimmingCharacters(in: .whitespacesAndNewlines)))
+                        let trimmed = errMsg.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if logErrors {
+                            Log.error("kubectl failed: \(trimmed)", category: .kubectl)
+                        }
+                        continuation.resume(throwing: KSwitchError.kubectlFailed(trimmed))
                         return
                     }
 
@@ -132,7 +135,19 @@ actor KubectlService {
     }
 
     func getFluxReport(context: String) async throws -> FluxReportSpec {
-        let output = try await run(["get", "fluxreport", "-A", "-o", "json"], context: context)
+        let output: String
+        do {
+            // Don't log errors - we handle expected failures (CRD not found)
+            output = try await run(["get", "fluxreport", "-A", "-o", "json"], context: context, logErrors: false)
+        } catch KSwitchError.kubectlFailed(let message) {
+            // CRD not installed - treat as Flux not installed
+            if message.contains("doesn't have a resource type") {
+                throw KSwitchError.fluxReportNotFound
+            }
+            // Log unexpected errors
+            Log.error("FluxReport fetch failed: \(message)", category: .flux)
+            throw KSwitchError.kubectlFailed(message)
+        }
         let list = try JSONDecoder().decode(FluxReportList.self, from: Data(output.utf8))
         guard let first = list.items.first else {
             throw KSwitchError.fluxReportNotFound

@@ -11,7 +11,7 @@ struct KSwitchApp: App {
             MenuBarView()
                 .environment(appState)
         } label: {
-            MenuBarIcon(appState: appState)
+            MenuBarIcon()
         }
         .menuBarExtraStyle(.window)
 
@@ -19,6 +19,7 @@ struct KSwitchApp: App {
         Window("KSwitch", id: "main") {
             MainWindow()
                 .environment(appState)
+                .containerBackground(.background, for: .window)
                 .onAppear {
                     // Show in Dock when window opens
                     NSApp.setActivationPolicy(.regular)
@@ -28,7 +29,7 @@ struct KSwitchApp: App {
                     NSApp.setActivationPolicy(.accessory)
                 }
         }
-        .windowStyle(.hiddenTitleBar)
+        .windowStyle(.titleBar)
         .windowResizability(.contentSize)
         .defaultSize(width: 800, height: 600)
         .commands {

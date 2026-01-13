@@ -163,12 +163,13 @@ final class AppState {
             while !Task.isCancelled {
                 guard let self = self, self.isBackgroundRefreshEnabled else { break }
 
+                // Sleep first, then refresh
+                try? await Task.sleep(for: .seconds(self.settings.refreshIntervalSeconds))
+
                 // Refresh status (context changes handled by KubeconfigWatcher)
                 if !self.currentContext.isEmpty {
                     await self.refreshStatus(for: self.currentContext)
                 }
-
-                try? await Task.sleep(for: .seconds(self.settings.refreshIntervalSeconds))
             }
         }
     }
@@ -309,11 +310,8 @@ final class AppState {
                 status.fluxOperator = .notInstalled
             }
         } catch KSwitchError.fluxReportNotFound {
-            // FluxReport CRD not found - Flux not installed
             status.fluxOperator = .notInstalled
         } catch {
-            // Log other errors for debugging
-            Log.error("Flux report error: \(error)")
             status.fluxOperator = .notInstalled
         }
 

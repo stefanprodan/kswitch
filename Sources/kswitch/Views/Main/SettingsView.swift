@@ -4,10 +4,14 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var kubeconfigPath: String = ""
     @State private var kubectlPath: String = ""
-    @State private var detectedKubectl: String = ""
 
     private var defaultKubeconfig: String {
         NSHomeDirectory() + "/.kube/config"
+    }
+
+    private var canSavePaths: Bool {
+        FileManager.default.fileExists(atPath: kubeconfigPath) &&
+        FileManager.default.fileExists(atPath: kubectlPath)
     }
 
     var body: some View {
@@ -24,68 +28,72 @@ struct SettingsView: View {
                     TextField("kubectl", text: $kubectlPath)
                     pathStatus(exists: FileManager.default.fileExists(atPath: kubectlPath))
                 }
+
+                HStack {
+                    Spacer()
+                    Button("Save") {
+                        savePaths()
+                    }
+                    .disabled(!canSavePaths)
+                }
             }
             .onAppear {
                 loadPaths()
             }
 
-            Section("Refresh") {
-                Picker("Refresh Interval", selection: $state.settings.refreshIntervalSeconds) {
+            Section("Status check") {
+                Picker("Interval", selection: $state.settings.refreshIntervalSeconds) {
                     Text("Manual only").tag(0)
                     Text("15 seconds").tag(15)
                     Text("30 seconds").tag(30)
                     Text("1 minute").tag(60)
                     Text("5 minutes").tag(300)
                 }
-            }
+                .onChange(of: state.settings.refreshIntervalSeconds) {
+                    appState.saveToDisk()
+                    appState.startBackgroundRefresh()
+                }
 
-            Section("Notifications") {
-                Toggle("Enable Notifications", isOn: $state.settings.notificationsEnabled)
+                Toggle("Notify on failures", isOn: $state.settings.notificationsEnabled)
+                    .onChange(of: state.settings.notificationsEnabled) {
+                        appState.saveToDisk()
+                    }
             }
 
             Section("Startup") {
                 Toggle("Launch at Login", isOn: $state.settings.launchAtLogin)
-                Toggle("Check for Updates Automatically", isOn: $state.settings.checkForUpdatesAutomatically)
-            }
-
-            Section {
-                HStack {
-                    Spacer()
-                    Button("Save Settings") {
-                        saveSettings()
+                    .onChange(of: state.settings.launchAtLogin) {
+                        appState.saveToDisk()
                     }
-                }
+
+                Toggle("Check for updates", isOn: $state.settings.checkForUpdatesAutomatically)
+                    .onChange(of: state.settings.checkForUpdatesAutomatically) {
+                        appState.saveToDisk()
+                    }
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .navigationTitle("Settings")
     }
 
     private func loadPaths() {
-        // Pre-fill with effective values (user-set OR defaults)
         kubeconfigPath = appState.settings.kubeconfigPaths.first ?? defaultKubeconfig
 
-        // Detect kubectl and pre-fill
         Task {
             if let detected = try? await ShellEnvironment.shared.findExecutable(named: "kubectl") {
                 await MainActor.run {
-                    detectedKubectl = detected
                     kubectlPath = appState.settings.kubectlPath ?? detected
                 }
             }
         }
     }
 
-    private func saveSettings() {
-        // Validate paths exist
-        guard FileManager.default.fileExists(atPath: kubeconfigPath),
-              FileManager.default.fileExists(atPath: kubectlPath) else {
-            return
-        }
+    private func savePaths() {
+        guard canSavePaths else { return }
 
-        // Only persist if different from defaults
-        appState.settings.kubeconfigPaths = kubeconfigPath == defaultKubeconfig ? [] : [kubeconfigPath]
-        appState.settings.kubectlPath = kubectlPath == detectedKubectl ? nil : kubectlPath
+        appState.settings.kubeconfigPaths = kubeconfigPath.isEmpty ? [] : [kubeconfigPath]
+        appState.settings.kubectlPath = kubectlPath.isEmpty ? nil : kubectlPath
         appState.saveToDisk()
         appState.startBackgroundRefresh()
     }

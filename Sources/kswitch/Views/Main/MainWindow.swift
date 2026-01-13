@@ -3,7 +3,7 @@ import SwiftUI
 struct MainWindow: View {
     @Environment(AppState.self) private var appState
     @State private var searchText: String = ""
-    @State private var selectedItem: SidebarItem? = .allClusters
+    @State private var selectedItem: SidebarItem? = .clusters
     @State private var navigationPath = NavigationPath()
     @State private var isSearching: Bool = false
 
@@ -19,22 +19,11 @@ struct MainWindow: View {
             }
             .toolbar {
                 ToolbarItem {
-                    Button(action: { goBack() }) {
-                        Image(systemName: "chevron.left")
+                    if !navigationPath.isEmpty {
+                        Button(action: { goBack() }) {
+                            Image(systemName: "chevron.left")
+                        }
                     }
-                    .disabled(navigationPath.isEmpty)
-                }
-
-                ToolbarItem {
-                    Button(action: { /* forward not supported by NavigationPath */ }) {
-                        Image(systemName: "chevron.right")
-                    }
-                    .disabled(true)
-                }
-
-                ToolbarItem {
-                    Text(currentTitle)
-                        .font(.headline)
                 }
 
                 ToolbarItem(id: "flexible-space") {
@@ -66,20 +55,41 @@ struct MainWindow: View {
                         .buttonStyle(.borderless)
                     }
                 }
+
+                ToolbarItem {
+                    if selectedItem != .settings {
+                        Button {
+                            Task { await appState.refreshAllStatuses() }
+                        } label: {
+                            if appState.isRefreshing {
+                                ProgressView()
+                                    .scaleEffect(0.5)
+                                    .frame(width: 16, height: 16)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(appState.isRefreshing)
+                        .help("Refresh all clusters")
+                    }
+                }
             }
+            .toolbarBackground(.visible, for: .windowToolbar)
         }
         .task {
             await appState.refreshAllStatuses()
         }
         .onChange(of: selectedItem) {
-            // Clear search when switching sections
+            // Clear search and navigation when switching sections
             isSearching = false
             searchText = ""
+            navigationPath = NavigationPath()
         }
         .task(id: appState.pendingClusterNavigation?.id) {
             if let cluster = appState.pendingClusterNavigation {
                 appState.pendingClusterNavigation = nil
-                selectedItem = .allClusters
+                selectedItem = .clusters
                 navigationPath = NavigationPath()
                 navigationPath.append(cluster)
             }
@@ -102,28 +112,11 @@ struct MainWindow: View {
         } else if appState.clusters.isEmpty {
             emptyStateView
         } else {
-            switch selectedItem {
-            case .favorites:
-                ClustersListView(
-                    searchText: $searchText,
-                    showFavoritesOnly: true,
-                    navigationPath: $navigationPath
-                )
-            case .allClusters, .none:
-                ClustersListView(
-                    searchText: $searchText,
-                    showFavoritesOnly: false,
-                    navigationPath: $navigationPath
-                )
-            case .hidden:
-                ClustersListView(
-                    searchText: $searchText,
-                    showHiddenOnly: true,
-                    navigationPath: $navigationPath
-                )
-            case .settings:
-                SettingsView()
-            }
+            ClustersListView(
+                searchText: $searchText,
+                navigationPath: $navigationPath
+            )
+            .navigationTitle("Clusters")
         }
     }
 
@@ -181,13 +174,6 @@ struct MainWindow: View {
             .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var currentTitle: String {
-        if !navigationPath.isEmpty {
-            return "Cluster Details"
-        }
-        return selectedItem?.title ?? "All Clusters"
     }
 
     private func goBack() {

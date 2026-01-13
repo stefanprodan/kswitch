@@ -1,26 +1,13 @@
 import SwiftUI
 
 enum SidebarItem: String, Hashable, CaseIterable {
-    case favorites
-    case allClusters
-    case hidden
+    case clusters
     case settings
 
     var title: String {
         switch self {
-        case .favorites: return "Favorites"
-        case .allClusters: return "All Clusters"
-        case .hidden: return "Hidden"
+        case .clusters: return "Clusters"
         case .settings: return "Settings"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .favorites: return "star.fill"
-        case .allClusters: return "square.stack.3d.up"
-        case .hidden: return "eye.slash"
-        case .settings: return "gearshape"
         }
     }
 }
@@ -31,17 +18,9 @@ struct Sidebar: View {
 
     var body: some View {
         List(selection: $selection) {
-            Label("All Clusters", systemImage: "square.stack.3d.up")
-                .badge(appState.visibleClusters.count)
-                .tag(SidebarItem.allClusters)
-
-            Label("Favorites", systemImage: "star.fill")
-                .badge(appState.favoriteClusters.count)
-                .tag(SidebarItem.favorites)
-
-            Label("Hidden", systemImage: "eye.slash")
-                .badge(appState.hiddenClusters.count)
-                .tag(SidebarItem.hidden)
+            Label("Clusters", systemImage: "square.stack.3d.up")
+                .badge(appState.clusters.count)
+                .tag(SidebarItem.clusters)
 
             Divider()
 

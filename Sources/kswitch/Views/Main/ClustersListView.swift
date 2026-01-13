@@ -3,33 +3,31 @@ import SwiftUI
 struct ClustersListView: View {
     @Environment(AppState.self) private var appState
     @Binding var searchText: String
-    var showFavoritesOnly: Bool = false
-    var showHiddenOnly: Bool = false
     @Binding var navigationPath: NavigationPath
+    @State private var clusterToEdit: Cluster?
 
-    init(searchText: Binding<String>, showFavoritesOnly: Bool = false, showHiddenOnly: Bool = false, navigationPath: Binding<NavigationPath>) {
-        self._searchText = searchText
-        self.showFavoritesOnly = showFavoritesOnly
-        self.showHiddenOnly = showHiddenOnly
-        self._navigationPath = navigationPath
+    private var sortedClusters: [Cluster] {
+        let favorites = appState.clusters
+            .filter { $0.isFavorite && !$0.isHidden }
+            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
+
+        let nonFavorites = appState.clusters
+            .filter { !$0.isFavorite && !$0.isHidden }
+            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
+
+        let hidden = appState.clusters
+            .filter { $0.isHidden }
+            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
+
+        return favorites + nonFavorites + hidden
     }
 
     private var filteredClusters: [Cluster] {
-        var clusters: [Cluster]
-
-        if showHiddenOnly {
-            clusters = appState.hiddenClusters
-        } else if showFavoritesOnly {
-            clusters = appState.favoriteClusters
-        } else {
-            clusters = appState.visibleClusters
-        }
-
         if searchText.isEmpty {
-            return clusters
+            return sortedClusters
         }
 
-        return clusters.filter {
+        return sortedClusters.filter {
             $0.effectiveName.localizedCaseInsensitiveContains(searchText) ||
             $0.contextName.localizedCaseInsensitiveContains(searchText)
         }
@@ -51,34 +49,85 @@ struct ClustersListView: View {
                     NavigationLink(value: cluster) {
                         ClusterRow(cluster: cluster)
                     }
+                    .listRowBackground(
+                        cluster.contextName == appState.currentContext
+                            ? Color.accentColor.opacity(0.1)
+                            : Color.clear
+                    )
+                    .contextMenu {
+                        contextMenuItems(for: cluster)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .sheet(item: $clusterToEdit) { cluster in
+                    ClusterEditSheet(cluster: cluster)
+                        .environment(appState)
                 }
             }
         }
     }
 
     private var emptyTitle: String {
-        if showHiddenOnly { return "No Hidden Clusters" }
-        if showFavoritesOnly { return "No Favorites" }
         if !searchText.isEmpty { return "No Results" }
         return "No Clusters"
     }
 
     private var emptyIcon: String {
-        if showHiddenOnly { return "eye.slash" }
-        if showFavoritesOnly { return "star" }
         return "square.stack.3d.up"
     }
 
     private var emptyDescription: String {
-        if showHiddenOnly { return "Hidden clusters will appear here." }
-        if showFavoritesOnly { return "Mark clusters as favorites to see them here." }
         if !searchText.isEmpty { return "Try a different search term." }
         return "No Kubernetes contexts found in your kubeconfig."
+    }
+
+    // MARK: - Context Menu
+
+    @ViewBuilder
+    private func contextMenuItems(for cluster: Cluster) -> some View {
+        Button {
+            Task { await appState.switchContext(to: cluster.contextName) }
+        } label: {
+            Label("Set as Current", systemImage: "checkmark.circle")
+        }
+        .disabled(cluster.contextName == appState.currentContext || !cluster.isInKubeconfig)
+
+        Divider()
+
+        Button {
+            clusterToEdit = cluster
+        } label: {
+            Label("Edit...", systemImage: "pencil")
+        }
+
+        Divider()
+
+        Button {
+            var updated = cluster
+            updated.isFavorite.toggle()
+            appState.updateCluster(updated)
+        } label: {
+            Label(cluster.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                  systemImage: cluster.isFavorite ? "star.slash" : "star")
+        }
+
+        Button {
+            var updated = cluster
+            updated.isHidden.toggle()
+            appState.updateCluster(updated)
+            if !updated.isHidden {
+                Task { await appState.refreshStatus(for: cluster.contextName) }
+            }
+        } label: {
+            Label(cluster.isHidden ? "Unhide" : "Hide",
+                  systemImage: cluster.isHidden ? "eye" : "eye.slash")
+        }
     }
 }
 
 struct ClusterRow: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.colorScheme) private var colorScheme
     let cluster: Cluster
 
     private var status: ClusterStatus? {
@@ -86,78 +135,201 @@ struct ClusterRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // First line: dot + name + star + [current badge]
+        VStack(alignment: .leading, spacing: 6) {
+            // First line: star + name + status badge
             HStack {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
+                Text(cluster.isFavorite ? "★" : "☆")
+                    .font(.system(size: 14))
+                    .foregroundStyle(cluster.isFavorite ? .yellow : .secondary)
 
                 Text(cluster.effectiveName)
-                    .fontWeight(cluster.contextName == appState.currentContext ? .semibold : .regular)
-                    .foregroundStyle(cluster.isInKubeconfig ? .primary : .secondary)
-
-                Image(systemName: cluster.isFavorite ? "star.fill" : "star")
-                    .foregroundStyle(cluster.isFavorite ? .yellow : .secondary)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13, weight: cluster.contextName == appState.currentContext ? .semibold : .regular))
+                    .foregroundStyle(cluster.isHidden ? .secondary : .primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 Spacer()
 
-                if cluster.contextName == appState.currentContext {
-                    Text("Current")
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.blue.opacity(0.2))
-                        .foregroundStyle(.blue)
-                        .clipShape(Capsule())
-                }
+                statusBadge
             }
 
-            // Second line: status text (indented to align with name)
-            Text(statusText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.leading, 14)
+            // Version info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(kubernetesText)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                Text(fluxText)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .padding(.leading, 20)
         }
         .padding(.vertical, 4)
         .opacity(cluster.isInKubeconfig ? 1 : 0.5)
     }
 
-    private var statusColor: Color {
-        guard let status = status else { return .gray }
-        switch status.statusColor {
-        case .green: return .green
-        case .yellow: return .yellow
-        case .red: return .red
-        case .gray: return .gray
+    // MARK: - Status Badge
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 6, height: 6)
+            Text(statusLabel)
+                .font(.system(size: 10, weight: .medium))
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(colorScheme == .dark
+                    ? Color.white.opacity(0.1)
+                    : Color.black.opacity(0.05))
+        )
     }
 
-    private var statusText: String {
-        guard let status = status else { return "—" }
+    private var statusLabel: String {
+        if cluster.isHidden {
+            return "Hidden"
+        }
 
-        // Build version/nodes string if available
-        var parts: [String] = []
-        if let version = status.kubernetesVersion {
-            parts.append(version)
+        guard let status = status else {
+            return "Unknown"
         }
-        if let nodes = status.nodeCount {
-            parts.append("\(nodes) \(nodes == 1 ? "node" : "nodes")")
-        }
-        let previousInfo = parts.isEmpty ? nil : parts.joined(separator: " · ")
 
         switch status.reachability {
-        case .unknown:
-            return "—"
-        case .checking:
-            // Show previous info if available, otherwise show Checking...
-            return previousInfo ?? "Checking..."
-        case .unreachable:
-            return "Unreachable"
         case .reachable:
-            return previousInfo ?? "Connected"
+            if let summary = status.fluxSummary, summary.totalFailing > 0 {
+                return "Degraded"
+            }
+            return "Healthy"
+        case .unreachable:
+            return "Offline"
+        case .checking:
+            if status.kubernetesVersion != nil {
+                if let summary = status.fluxSummary, summary.totalFailing > 0 {
+                    return "Degraded"
+                }
+                return "Healthy"
+            }
+            return "Checking"
+        case .unknown:
+            return "Unknown"
         }
     }
 
+    private var statusColor: Color {
+        if cluster.isHidden {
+            return .gray
+        }
+
+        guard let status = status else {
+            return .gray
+        }
+
+        switch status.reachability {
+        case .reachable:
+            if let summary = status.fluxSummary, summary.totalFailing > 0 {
+                return .yellow
+            }
+            return .green
+        case .unreachable:
+            return .red
+        case .checking:
+            if status.kubernetesVersion != nil {
+                if let summary = status.fluxSummary, summary.totalFailing > 0 {
+                    return .yellow
+                }
+                return .green
+            }
+            return .gray
+        case .unknown:
+            return .gray
+        }
+    }
+
+    // MARK: - Version Text
+
+    private var kubernetesText: String {
+        if cluster.isHidden {
+            return "Status check paused"
+        }
+
+        guard let status = status else {
+            return "Kubernetes status unknown"
+        }
+
+        switch status.reachability {
+        case .checking:
+            if let version = status.kubernetesVersion {
+                return formatKubernetesLine(version: version, nodes: status.nodeCount)
+            }
+            return "Checking Kubernetes..."
+        case .reachable:
+            if let version = status.kubernetesVersion {
+                return formatKubernetesLine(version: version, nodes: status.nodeCount)
+            }
+            return "Kubernetes connected"
+        case .unreachable:
+            return "Kubernetes unreachable"
+        case .unknown:
+            return "Kubernetes status unknown"
+        }
+    }
+
+    private func formatKubernetesLine(version: String, nodes: Int?) -> String {
+        if let nodes = nodes {
+            return "Kubernetes \(version) · \(nodes) \(nodes == 1 ? "node" : "nodes")"
+        }
+        return "Kubernetes \(version)"
+    }
+
+    private var fluxText: String {
+        if cluster.isHidden {
+            return ""
+        }
+
+        guard let status = status else {
+            return "Flux status unknown"
+        }
+
+        if case .unreachable = status.reachability {
+            return "Flux unreachable"
+        }
+
+        switch status.fluxOperator {
+        case .checking:
+            if let summary = status.fluxSummary {
+                return formatFluxLine(summary)
+            }
+            return "Checking Flux..."
+        case .installed, .degraded:
+            if let summary = status.fluxSummary {
+                return formatFluxLine(summary)
+            }
+            return "Flux installed"
+        case .notInstalled:
+            return "Flux not installed"
+        case .unknown:
+            return "Flux status unknown"
+        }
+    }
+
+    private func formatFluxLine(_ summary: FluxReportSummary) -> String {
+        let flux = summary.distributionVersion
+        let op = summary.operatorVersion
+
+        if flux != "unknown" && op != "unknown" {
+            return "Flux \(flux) · Operator \(op)"
+        } else if op != "unknown" {
+            return "Flux Operator \(op)"
+        } else if flux != "unknown" {
+            return "Flux \(flux)"
+        }
+        return "Flux installed"
+    }
 }

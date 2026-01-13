@@ -327,26 +327,6 @@ struct MenuBarView: View {
         .help(cluster.contextName)
     }
 
-    @ViewBuilder
-    private func statusIndicator(for status: ClusterStatus) -> some View {
-        switch status.reachability {
-        case .reachable:
-            if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                Circle().fill(.yellow).frame(width: 6, height: 6)
-            } else {
-                Circle().fill(.green).frame(width: 6, height: 6)
-            }
-        case .unreachable:
-            Circle().fill(.red).frame(width: 6, height: 6)
-        case .checking:
-            ProgressView()
-                .scaleEffect(0.5)
-                .frame(width: 6, height: 6)
-        case .unknown:
-            Circle().fill(.gray).frame(width: 6, height: 6)
-        }
-    }
-
     // MARK: - Action Bar
 
     private var actionBar: some View {
