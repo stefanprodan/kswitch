@@ -31,20 +31,26 @@ struct AboutView: View {
     @ViewBuilder
     private var headerSection: some View {
         HStack(spacing: 12) {
-            Image(systemName: "helm")
-                .font(.system(size: 48))
-                .foregroundStyle(.blue)
+            AboutIcon()
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("KSwitch")
-                    .font(.title2)
+                    .font(.title)
                     .fontWeight(.semibold)
 
                 Text("Kubernetes context manager")
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    @ViewBuilder
+    private func AboutIcon() -> some View {
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 64, height: 64)
     }
 
     @ViewBuilder
