@@ -16,39 +16,39 @@ struct ClusterDetailView: View {
 
     var body: some View {
         Group {
-            if status == nil {
-                // Full page loader - no data yet
-                ProgressView("Loading cluster status...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        headerSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    headerSection
 
+                    if let status = status {
                         Divider()
 
-                        kubernetesInfoSection(status: status!)
+                        kubernetesInfoSection(status: status)
 
-                        Divider()
-
-                        fluxInfoSection(status: status!)
-
-                        if status!.fluxReport?.sync != nil {
+                        if case .unreachable(let error) = status.reachability {
+                            errorPanel(message: error)
+                        } else {
                             Divider()
 
-                            fluxSyncSection(status: status!)
+                            fluxInfoSection(status: status)
+
+                            if status.fluxReport?.sync != nil {
+                                Divider()
+
+                                fluxSyncSection(status: status)
+                            }
+
+                            if let reconcilers = status.fluxReport?.reconcilers, !reconcilers.isEmpty {
+                                Divider()
+
+                                fluxReconcilersSection(reconcilers: reconcilers)
+                            }
                         }
-
-                        if let reconcilers = status!.fluxReport?.reconcilers, !reconcilers.isEmpty {
-                            Divider()
-
-                            fluxReconcilersSection(reconcilers: reconcilers)
-                        }
-
-                        Spacer()
                     }
-                    .padding()
+
+                    Spacer()
                 }
+                .padding()
             }
         }
         .navigationTitle("Cluster")
@@ -208,7 +208,8 @@ struct ClusterDetailView: View {
                         .foregroundStyle(.secondary)
 
                 case .checking:
-                    ProgressView("Checking Flux status...")
+                    Text("Checking...")
+                        .foregroundStyle(.secondary)
 
                 case .unknown:
                     Text("Status unknown")
@@ -378,14 +379,13 @@ struct ClusterDetailView: View {
                     .frame(width: 14, height: 14)
                 Text("Online")
             }
-        case .unreachable(let error):
+        case .unreachable:
             HStack {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.red)
                     .frame(width: 14, height: 14)
                 Text("Offline")
             }
-            .help(error)
         case .checking:
             // Show previous state if we have data, otherwise show checking
             if status.kubernetesVersion != nil {
@@ -396,16 +396,33 @@ struct ClusterDetailView: View {
                     Text("Online")
                 }
             } else {
-                HStack {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(width: 14, height: 14)
-                    Text("Checking...")
-                }
+                Text("Checking...")
+                    .foregroundStyle(.secondary)
             }
         case .unknown:
             Text("Unknown")
                 .foregroundStyle(.secondary)
         }
+    }
+
+    @ViewBuilder
+    private func errorPanel(message: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.yellow)
+                Text("Connection Error")
+                    .font(.headline)
+            }
+
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding()
+        .background(.red.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

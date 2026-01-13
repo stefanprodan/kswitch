@@ -3,11 +3,13 @@ import SwiftUI
 enum SidebarItem: String, Hashable, CaseIterable {
     case clusters
     case settings
+    case about
 
     var title: String {
         switch self {
         case .clusters: return "Clusters"
         case .settings: return "Settings"
+        case .about: return "About"
         }
     }
 }
@@ -26,6 +28,9 @@ struct Sidebar: View {
 
             Label("Settings", systemImage: "gearshape")
                 .tag(SidebarItem.settings)
+
+            Label("About", systemImage: "info.circle")
+                .tag(SidebarItem.about)
         }
         .listStyle(.sidebar)
         .navigationSplitViewColumnWidth(min: 180, ideal: 200)

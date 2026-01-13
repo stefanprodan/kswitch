@@ -267,7 +267,13 @@ final class AppState {
                 await NotificationService.shared.notifyClusterReachable(clusterName: clusterName)
             }
         } catch {
-            status.reachability = .unreachable("Cluster is not reachable")
+            let errorMsg: String
+            if let kswitchError = error as? KSwitchError {
+                errorMsg = kswitchError.errorDescription ?? error.localizedDescription
+            } else {
+                errorMsg = error.localizedDescription
+            }
+            status.reachability = .unreachable(errorMsg)
             status.fluxOperator = .unknown
             status.lastChecked = Date()
             clusterStatuses[contextName] = status

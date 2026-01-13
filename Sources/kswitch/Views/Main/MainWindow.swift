@@ -31,7 +31,7 @@ struct MainWindow: View {
                 }
 
                 ToolbarItem {
-                    if selectedItem != .settings && isSearching {
+                    if selectedItem == .clusters && isSearching {
                         TextField("Search clusters", text: $searchText)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 180)
@@ -43,7 +43,7 @@ struct MainWindow: View {
                 }
 
                 ToolbarItem {
-                    if selectedItem != .settings {
+                    if selectedItem == .clusters {
                         Button(action: {
                             isSearching.toggle()
                             if !isSearching {
@@ -57,7 +57,7 @@ struct MainWindow: View {
                 }
 
                 ToolbarItem {
-                    if selectedItem != .settings {
+                    if selectedItem == .clusters {
                         Button {
                             Task { await appState.refreshAllStatuses() }
                         } label: {
@@ -107,6 +107,8 @@ struct MainWindow: View {
     private var detailView: some View {
         if selectedItem == .settings {
             SettingsView()
+        } else if selectedItem == .about {
+            AboutView()
         } else if let error = appState.error {
             errorStateView(message: error)
         } else if appState.clusters.isEmpty {
