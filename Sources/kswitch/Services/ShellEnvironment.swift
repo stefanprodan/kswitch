@@ -8,13 +8,21 @@ actor ShellEnvironment {
     private var cachedPath: [String]?
     private var cachedProtectedPaths: [String]?
 
-    /// Returns environment variables for tool subprocesses.
-    /// If kubeconfig paths are provided, sets KUBECONFIG env var with colon-separated paths.
+    /// Returns minimal environment variables for kubectl subprocesses.
     func getEnvironment(kubeconfigPaths: [String] = []) -> [String: String] {
-        var env = ProcessInfo.processInfo.environment
+        let processEnv = ProcessInfo.processInfo.environment
+        var env: [String: String] = [:]
+
         if !kubeconfigPaths.isEmpty {
             env["KUBECONFIG"] = kubeconfigPaths.joined(separator: ":")
         }
+        if let home = processEnv["HOME"] {
+            env["HOME"] = home
+        }
+        if let path = processEnv["PATH"] {
+            env["PATH"] = path
+        }
+
         return env
     }
 
