@@ -255,27 +255,17 @@ struct MenuBarSetupView: View {
         let paths = appState.settings.kubeconfigPaths
         kubeconfigPath = paths.isEmpty ? defaultKubeconfig : paths.joined(separator: ":")
 
-        // Only auto-detect kubectl if no path is configured
-        if let configuredKubectl = appState.settings.kubectlPath {
-            kubectlPath = configuredKubectl
-        } else {
-            // Try to detect kubectl
-            Task {
-                if let detected = try? await ShellEnvironment.shared.findExecutable(named: "kubectl") {
-                    await MainActor.run {
-                        kubectlPath = detected
-                    }
-                }
-            }
-        }
+        // Use saved path, or fall back to detected path from startup
+        kubectlPath = appState.settings.kubectlPath ?? appState.detectedKubectlPath ?? ""
     }
 
     private func discover() {
         Task {
-            // Try to find kubectl
-            if let detected = try? await ShellEnvironment.shared.findExecutable(named: "kubectl") {
+            // Re-run kubectl detection
+            if let detected = await ShellEnvironment.shared.findExecutable(named: "kubectl") {
                 await MainActor.run {
                     kubectlPath = detected
+                    appState.detectedKubectlPath = detected
                 }
             }
 

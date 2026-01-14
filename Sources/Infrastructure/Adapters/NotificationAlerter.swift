@@ -15,16 +15,16 @@ public actor NotificationAlerter {
 
     public func requestAuthorization() async {
         guard canUseNotifications else {
-            Log.warning("Notifications disabled: not running as app bundle", category: .notifications)
+            AppLog.warning("Notifications disabled: not running as app bundle", category: .notifications)
             return
         }
 
         do {
             let center = UNUserNotificationCenter.current()
             isAuthorized = try await center.requestAuthorization(options: [.alert, .sound])
-            Log.info("Notification authorization: \(isAuthorized ? "granted" : "denied")", category: .notifications)
+            AppLog.info("Notification authorization: \(isAuthorized ? "granted" : "denied")", category: .notifications)
         } catch {
-            Log.error("Failed to request notification authorization: \(error)", category: .notifications)
+            AppLog.error("Failed to request notification authorization: \(error)", category: .notifications)
         }
     }
 

@@ -26,13 +26,13 @@ public actor KubectlRunner {
             return cached
         }
 
-        if let found = try await ShellEnvironment.shared.findExecutable(named: "kubectl") {
-            Log.info("Found kubectl at: \(found)", category: .kubectl)
+        if let found = await ShellEnvironment.shared.findExecutable(named: "kubectl") {
+            AppLog.info("Found kubectl at: \(found)", category: .kubectl)
             resolvedPath = found
             return found
         }
 
-        Log.error("kubectl not found in PATH", category: .kubectl)
+        AppLog.error("kubectl not found in PATH", category: .kubectl)
         throw KSwitchError.kubectlNotFound
     }
 
@@ -61,7 +61,7 @@ public actor KubectlRunner {
 
         guard result.exitCode == 0 else {
             if logErrors {
-                Log.error("kubectl failed: \(result.output)", category: .kubectl)
+                AppLog.error("kubectl failed: \(result.output)", category: .kubectl)
             }
             throw KSwitchError.kubectlFailed(result.output)
         }
@@ -85,7 +85,7 @@ public actor KubectlRunner {
     }
 
     public func setCurrentContext(_ name: String) async throws {
-        Log.info("Switching to context: \(name)", category: .kubectl)
+        AppLog.info("Switching to context: \(name)", category: .kubectl)
         _ = try await run(["config", "use-context", name])
     }
 
@@ -99,7 +99,7 @@ public actor KubectlRunner {
 
         let output = try await run(["version", "-o", "json"], context: context)
         let response = try JSONDecoder().decode(VersionResponse.self, from: Data(output.utf8))
-        Log.debug("Fetched cluster info for \(context): \(response.serverVersion.gitVersion)", category: .kubectl)
+        AppLog.debug("Fetched cluster info for \(context): \(response.serverVersion.gitVersion)", category: .kubectl)
         return response.serverVersion.gitVersion
     }
 
@@ -125,14 +125,14 @@ public actor KubectlRunner {
                 throw KSwitchError.fluxReportNotFound
             }
             // Log unexpected errors
-            Log.error("FluxReport fetch failed: \(message)", category: .flux)
+            AppLog.error("FluxReport fetch failed: \(message)", category: .flux)
             throw KSwitchError.kubectlFailed(message)
         }
         let list = try JSONDecoder().decode(FluxReportList.self, from: Data(output.utf8))
         guard let first = list.items.first else {
             throw KSwitchError.fluxReportNotFound
         }
-        Log.debug("Fetched FluxReport for \(context): \(first.spec.operator?.version ?? "unknown")", category: .flux)
+        AppLog.debug("Fetched FluxReport for \(context): \(first.spec.operator?.version ?? "unknown")", category: .flux)
         return first.spec
     }
 }

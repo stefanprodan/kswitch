@@ -17,6 +17,7 @@ final class AppState {
     var error: String?
     var pendingClusterNavigation: Cluster?
     var pendingSettingsNavigation: Bool = false
+    var detectedKubectlPath: String?
 
     // Background refresh
     private var refreshTask: Task<Void, Never>?
@@ -50,7 +51,7 @@ final class AppState {
 
     init() {
         loadFromDisk()
-        Log.info("AppState initialized")
+        AppLog.info("AppState initialized")
 
         // Start watching kubeconfig for external changes
         setupKubeconfigWatcher()
@@ -59,14 +60,23 @@ final class AppState {
         Task { @MainActor [weak self] in
             await NotificationAlerter.shared.requestAuthorization()
             guard let self else { return }
-            Log.info("Starting context refresh...")
+
+            // Detect kubectl path if not configured
+            if self.settings.kubectlPath == nil {
+                self.detectedKubectlPath = await ShellEnvironment.shared.findExecutable(named: "kubectl")
+                if let path = self.detectedKubectlPath {
+                    AppLog.info("Auto-detected kubectl at: \(path)")
+                }
+            }
+
+            AppLog.info("Starting context refresh...")
             await self.refreshContexts()
-            Log.info("Contexts refreshed, current: \(self.currentContext)")
+            AppLog.info("Contexts refreshed, current: \(self.currentContext)")
             if !self.currentContext.isEmpty {
                 await self.refreshStatus(for: self.currentContext)
             }
             self.startBackgroundRefresh()
-            Log.info("Initialization complete")
+            AppLog.info("Initialization complete")
         }
     }
 
@@ -83,10 +93,10 @@ final class AppState {
     }
 
     private func handleKubeconfigChange() async {
-        Log.info("Handling kubeconfig change...")
+        AppLog.info("Handling kubeconfig change...")
         let newContext = try? await getKubectl().getCurrentContext()
         if let newContext, newContext != currentContext {
-            Log.info("Context changed externally: \(currentContext) -> \(newContext)")
+            AppLog.info("Context changed externally: \(currentContext) -> \(newContext)")
             currentContext = newContext
             await refreshStatus(for: newContext)
         }
@@ -117,7 +127,7 @@ final class AppState {
                 let data = try Data(contentsOf: clustersFileURL)
                 clusters = try JSONDecoder().decode([Cluster].self, from: data)
             } catch {
-                Log.error("Failed to load clusters: \(error)")
+                AppLog.error("Failed to load clusters: \(error)")
             }
         }
 
@@ -127,7 +137,7 @@ final class AppState {
                 let data = try Data(contentsOf: settingsFileURL)
                 settings = try JSONDecoder().decode(AppSettings.self, from: data)
             } catch {
-                Log.error("Failed to load settings: \(error)")
+                AppLog.error("Failed to load settings: \(error)")
             }
         }
     }
@@ -150,7 +160,7 @@ final class AppState {
             // Restart kubeconfig watcher in case the path changed
             setupKubeconfigWatcher()
         } catch {
-            Log.error("Failed to save: \(error)")
+            AppLog.error("Failed to save: \(error)")
         }
     }
 
@@ -308,7 +318,7 @@ final class AppState {
                         healthy: true
                     )
                 } else {
-                    Log.warning("Flux degraded for \(contextName): \(summary.totalFailing) failing")
+                    AppLog.warning("Flux degraded for \(contextName): \(summary.totalFailing) failing")
                     status.fluxOperator = .degraded(
                         version: summary.distributionVersion,
                         failing: summary.totalFailing

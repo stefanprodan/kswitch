@@ -25,7 +25,7 @@ public final class KubeconfigWatcher {
         stop()
 
         guard FileManager.default.fileExists(atPath: kubeconfigURL.path) else {
-            Log.warning("Kubeconfig not found at \(kubeconfigURL.path)", category: .kubectl)
+            AppLog.warning("Kubeconfig not found at \(kubeconfigURL.path)", category: .kubectl)
             return
         }
 
@@ -46,7 +46,7 @@ public final class KubeconfigWatcher {
                 self.debounceTask = Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(100))
                     guard !Task.isCancelled else { return }
-                    Log.info("Kubeconfig file changed", category: .kubectl)
+                    AppLog.info("Kubeconfig file changed", category: .kubectl)
                     self.onChange()
                 }
             }
@@ -57,9 +57,9 @@ public final class KubeconfigWatcher {
 
             source.resume()
             self.source = source
-            Log.info("Started watching kubeconfig at \(kubeconfigURL.path)", category: .kubectl)
+            AppLog.info("Started watching kubeconfig at \(kubeconfigURL.path)", category: .kubectl)
         } catch {
-            Log.error("Failed to watch kubeconfig: \(error)", category: .kubectl)
+            AppLog.error("Failed to watch kubeconfig: \(error)", category: .kubectl)
         }
     }
 

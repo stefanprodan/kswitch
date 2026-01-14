@@ -6,7 +6,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var refreshIntervalSeconds: Int
     public var launchAtLogin: Bool
     public var notificationsEnabled: Bool
-    public var checkForUpdatesAutomatically: Bool
+    public var autoupdate: Bool
 
     public static let `default` = AppSettings(
         kubeconfigPaths: [],
@@ -14,7 +14,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         refreshIntervalSeconds: 30,
         launchAtLogin: false,
         notificationsEnabled: true,
-        checkForUpdatesAutomatically: true
+        autoupdate: true
     )
 
     public init(
@@ -23,14 +23,14 @@ public struct AppSettings: Codable, Equatable, Sendable {
         refreshIntervalSeconds: Int,
         launchAtLogin: Bool,
         notificationsEnabled: Bool,
-        checkForUpdatesAutomatically: Bool
+        autoupdate: Bool
     ) {
         self.kubeconfigPaths = kubeconfigPaths
         self.kubectlPath = kubectlPath
         self.refreshIntervalSeconds = refreshIntervalSeconds
         self.launchAtLogin = launchAtLogin
         self.notificationsEnabled = notificationsEnabled
-        self.checkForUpdatesAutomatically = checkForUpdatesAutomatically
+        self.autoupdate = autoupdate
     }
 
     public var effectiveKubeconfigPaths: [String] {

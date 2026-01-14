@@ -10,8 +10,8 @@ public enum LogCategory: String, Sendable {
     case updates = "Updates"
 }
 
-public struct Log {
-    private static let subsystem = Bundle.main.bundleIdentifier ?? "io.kswitch"
+public struct AppLog {
+    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.stefanprodan.kswitch"
 
     public static func debug(_ message: String, category: LogCategory = .app) {
         logger(for: category).debug("\(message, privacy: .public)")

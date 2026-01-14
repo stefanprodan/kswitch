@@ -1,6 +1,5 @@
 import SwiftUI
 import Domain
-import Infrastructure
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
@@ -41,7 +40,7 @@ struct SettingsView: View {
 
                 VStack(alignment: .trailing, spacing: 2) {
                     TextField("kubectl", text: $kubectlPath)
-                    pathStatus(exists: FileManager.default.fileExists(atPath: kubectlPath))
+                    kubectlStatus
                 }
 
                 HStack {
@@ -81,8 +80,8 @@ struct SettingsView: View {
                         appState.saveToDisk()
                     }
 
-                Toggle("Check for updates", isOn: $state.settings.checkForUpdatesAutomatically)
-                    .onChange(of: state.settings.checkForUpdatesAutomatically) {
+                Toggle("Check for updates", isOn: $state.settings.autoupdate)
+                    .onChange(of: state.settings.autoupdate) {
                         appState.saveToDisk()
                     }
             }
@@ -96,13 +95,8 @@ struct SettingsView: View {
         let paths = appState.settings.kubeconfigPaths
         kubeconfigPath = paths.isEmpty ? defaultKubeconfig : paths.joined(separator: ":")
 
-        Task {
-            if let detected = try? await ShellEnvironment.shared.findExecutable(named: "kubectl") {
-                await MainActor.run {
-                    kubectlPath = appState.settings.kubectlPath ?? detected
-                }
-            }
-        }
+        // Use saved path, or fall back to detected path from startup
+        kubectlPath = appState.settings.kubectlPath ?? appState.detectedKubectlPath ?? ""
     }
 
     private func savePaths() {
@@ -141,8 +135,8 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func pathStatus(exists: Bool) -> some View {
-        if exists {
+    private var kubectlStatus: some View {
+        if FileManager.default.fileExists(atPath: kubectlPath) {
             Text("✓ Valid")
                 .font(.caption)
                 .foregroundStyle(.green)
