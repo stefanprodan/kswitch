@@ -16,4 +16,4 @@ jobs:
           scheme: KSwitch
           use-xcbeautify: true
           xcbeautify-renderer: github-actions
-          xcode: /Applications/Xcode_16.4.app
+          xcode: /Applications/Xcode_26.2.app
