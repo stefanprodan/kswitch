@@ -7,13 +7,13 @@ on:
     branches: [main]
 
 jobs:
-  swift-test:
-    runs-on: macos-15
+  build-test:
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: brightdigit/swift-build@v1.4.2
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build and Test
+        uses: brightdigit/swift-build@v1.4.2
         with:
           scheme: KSwitch
-          use-xcbeautify: true
-          xcbeautify-renderer: github-actions
           xcode: /Applications/Xcode_26.2.app
