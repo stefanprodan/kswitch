@@ -69,7 +69,7 @@ cp "$BINARY_SRC" "$APP/Contents/MacOS/$APP_NAME"
 chmod +x "$APP/Contents/MacOS/$APP_NAME"
 
 # Bundle resources
-APP_RESOURCES_DIR="$ROOT/Sources/$APP_NAME/Resources"
+APP_RESOURCES_DIR="$ROOT/Sources/App/Resources"
 if [[ -d "$APP_RESOURCES_DIR" ]]; then
   cp -R "$APP_RESOURCES_DIR/." "$APP/Contents/Resources/"
 fi
@@ -101,7 +101,7 @@ find "$APP" -name '._*' -delete
 
 # Ad-hoc signing
 log "==> Signing"
-ENTITLEMENTS="$ROOT/Sources/kswitch/entitlements.plist"
+ENTITLEMENTS="$ROOT/Sources/App/entitlements.plist"
 for fw in "$APP/Contents/Frameworks/"*.framework; do
   [[ -d "$fw" ]] || continue
   while IFS= read -r -d '' bin; do
