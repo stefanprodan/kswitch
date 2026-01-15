@@ -1,3 +1,6 @@
+// Copyright 2026 Stefan Prodan.
+// SPDX-License-Identifier: Apache-2.0
+
 import SwiftUI
 import Domain
 import Infrastructure
@@ -157,7 +160,6 @@ struct MenuBarView: View {
             )
         }
         .buttonStyle(.plain)
-        .help(cluster.contextName)
     }
 
     private func statusLabelFor(_ cluster: Cluster) -> String {

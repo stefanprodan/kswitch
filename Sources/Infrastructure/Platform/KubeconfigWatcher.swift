@@ -1,5 +1,14 @@
+// Copyright 2026 Stefan Prodan.
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 
+/// Monitors the kubeconfig file for changes using GCD's DispatchSource.
+///
+/// Uses a file descriptor-based `DispatchSourceFileSystemObject` to watch for
+/// write, rename, delete, and attribute changes. When changes are detected,
+/// triggers are debounced (100ms) to coalesce rapid successive modifications
+/// (e.g., editors that write-delete-rename) into a single callback.
 @MainActor
 public final class KubeconfigWatcher {
     private var fileHandle: FileHandle?

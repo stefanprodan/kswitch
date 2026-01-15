@@ -1,7 +1,14 @@
+// Copyright 2026 Stefan Prodan.
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 import Domain
 
-/// Handles persistence of app data to disk
+/// Handles persistence of app data to disk.
+///
+/// By default, stores JSON files in `~/Library/Application Support/KSwitch/`:
+/// - `clusters.json` - saved cluster configurations and customizations
+/// - `settings.json` - app preferences (refresh interval, kubectl path, etc.)
 public final class AppStorage: Sendable {
     public static let shared = AppStorage()
 

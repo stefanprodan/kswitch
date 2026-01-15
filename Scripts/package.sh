@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Build, package, and launch the app for local development.
+# Build and package the app into a .app bundle.
 #
-# Usage: run.sh (env vars: APP_NAME, BUNDLE_ID, MACOS_MIN_VERSION, MARKETING_VERSION, BUILD_NUMBER)
+# Usage: package.sh (env vars: APP_NAME, BUNDLE_ID, MACOS_MIN_VERSION, MARKETING_VERSION, BUILD_NUMBER)
 #
 # Required environment variables:
 #   APP_NAME           Application name
@@ -23,17 +23,9 @@ cd "$ROOT"
 : "${BUILD_NUMBER:?BUILD_NUMBER is required}"
 
 APP="$ROOT/${APP_NAME}.app"
-APP_PROCESS_PATTERN="${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
 
 log() { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-
-# Kill existing instances
-log "==> Killing existing ${APP_NAME} instances"
-pkill -f "${APP_PROCESS_PATTERN}" 2>/dev/null || true
-pkill -f "${ROOT}/.build/debug/${APP_NAME}" 2>/dev/null || true
-pkill -f "${ROOT}/.build/release/${APP_NAME}" 2>/dev/null || true
-pkill -x "${APP_NAME}" 2>/dev/null || true
 
 # Build
 HOST_ARCH=$(uname -m)
@@ -105,31 +97,4 @@ chmod -R u+w "$APP"
 xattr -cr "$APP"
 find "$APP" -name '._*' -delete
 
-# Ad-hoc signing (for local development)
-log "==> Signing"
-ENTITLEMENTS="$ROOT/Sources/App/entitlements.plist"
-for fw in "$APP/Contents/Frameworks/"*.framework; do
-  [[ -d "$fw" ]] || continue
-  while IFS= read -r -d '' bin; do
-    codesign --force --sign "-" "$bin"
-  done < <(find "$fw" -type f -perm -111 -print0)
-  codesign --force --sign "-" "$fw"
-done
-codesign --force --sign "-" --entitlements "$ENTITLEMENTS" "$APP"
-
-log "==> Launching"
-if ! open "$APP"; then
-  log "WARN: open failed; launching binary directly."
-  "$APP/Contents/MacOS/$APP_NAME" >/dev/null 2>&1 &
-  disown
-fi
-
-# Verify running
-for _ in {1..10}; do
-  if pgrep -f "${APP_PROCESS_PATTERN}" >/dev/null 2>&1; then
-    log "OK: ${APP_NAME} is running."
-    exit 0
-  fi
-  sleep 0.4
-done
-fail "App exited immediately. Check crash logs in Console.app (User Reports)."
+log "OK: ${APP_NAME}.app is ready for signing."

@@ -1,5 +1,7 @@
-# KSwitch - Kubernetes context switcher for macOS
-# This Makefile builds, packages, and launches the app for local development
+# Copyright 2026 Stefan Prodan.
+# SPDX-License-Identifier: Apache-2.0
+
+# Makefile that builds, tests, packages, and launches KSwitch for local development
 
 .DEFAULT_GOAL := run
 
@@ -33,7 +35,7 @@ clean:
 	@rm -rf $(APP_BUNDLE)
 	@rm -rf .build
 
-## reset: Delete app settings
+## reset: Delete app local storage
 .PHONY: reset
 reset:
 	@rm -rf ~/Library/Application\ Support/$(APP_NAME)
@@ -48,15 +50,35 @@ logs:
 logs-stream:
 	@log stream --predicate 'subsystem BEGINSWITH "$(BUNDLE_ID)"' --style compact --debug
 
-## print-clusters: Print clusters.json from app settings
+## print-clusters: Print clusters.json from app storage
 .PHONY: print-clusters
 print-clusters:
 	@cat ~/Library/Application\ Support/$(APP_NAME)/clusters.json | jq .
 
-## print-settings: Print settings.json from app settings
+## print-settings: Print settings.json from app storage
 .PHONY: print-settings
 print-settings:
 	@cat ~/Library/Application\ Support/$(APP_NAME)/settings.json | jq .
+
+## package: Build and package .app bundle (no signing)
+.PHONY: package
+package:
+	@APP_NAME=$(APP_NAME) BUNDLE_ID=$(BUNDLE_ID) MACOS_MIN_VERSION=$(MACOS_MIN_VERSION) \
+		MARKETING_VERSION=$(MARKETING_VERSION) BUILD_NUMBER=$(BUILD_NUMBER) ./Scripts/package.sh
+
+## sign: Sign app bundle (requires APPLE_SIGNING_IDENTITY env var)
+.PHONY: sign
+sign:
+	@APP_NAME=$(APP_NAME) ./Scripts/sign.sh
+
+## notarize: Notarize app with Apple (requires APP_STORE_CONNECT_* env vars)
+.PHONY: notarize
+notarize:
+	@APP_NAME=$(APP_NAME) ./Scripts/notarize.sh
+
+## release: Package, sign, and notarize the app
+.PHONY: release
+release: package sign notarize
 
 ## help: Show this help message
 .PHONY: help

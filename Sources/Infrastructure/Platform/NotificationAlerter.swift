@@ -1,6 +1,14 @@
+// Copyright 2026 Stefan Prodan.
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 import UserNotifications
 
+/// Sends macOS notifications for cluster state changes via `UNUserNotificationCenter`.
+///
+/// Notifies when clusters become unreachable/reachable or when Flux reconciliation
+/// failures increase. Requires the app to run as a proper bundle and
+/// user authorization for alerts and sounds.
 public actor NotificationAlerter {
     public static let shared = NotificationAlerter()
 

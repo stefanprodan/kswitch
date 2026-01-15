@@ -1,6 +1,14 @@
+// Copyright 2026 Stefan Prodan.
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 import Domain
 
+/// Executes kubectl commands to interact with Kubernetes clusters.
+///
+/// Resolves kubectl path via `ShellEnvironment` (respecting user's login shell PATH),
+/// injects KUBECONFIG from settings, and parses JSON responses for cluster info,
+/// nodes, and Flux reports. Uses `CommandRunner` protocol for testability.
 public actor KubectlRunner {
     private let settingsProvider: @Sendable () -> AppSettings
     private let runner: CommandRunner

@@ -1,3 +1,6 @@
+// Copyright 2026 Stefan Prodan.
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 
 /// Shell-specific command and parsing rules for getting environment from user's shell.

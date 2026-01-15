@@ -7,14 +7,14 @@ KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 
 - **Quick Context Switching** - Switch between Kubernetes contexts from the menu bar
 - **Cluster Status** - Shows reachability, Kubernetes version, nodes health, and cluster capacity
-- **GitOps Monitoring** - Displays Flux Operator cluster sync status and reconciler stats
+- **GitOps Monitoring** - Displays Flux Operator version, cluster sync status, and reconciler stats
 - **Organization** - Mark clusters as favorites, hide unused ones, customize display names and colors
-- **Notifications** - Get notified when clusters become unreachable or Flux resources fail
+- **Notifications** - Get notified when clusters become degraded or Flux reconcilers fail
 
 ## Requirements
 
 - macOS 15.0 (Sequoia) or later
-- `kubectl` installed and in PATH
+- kubectl installed and in `PATH`
 
 ## Installation
 
