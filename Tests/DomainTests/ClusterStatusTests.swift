@@ -97,7 +97,8 @@ import Testing
         let status = ClusterStatus()
         #expect(status.reachability == .unknown)
         #expect(status.kubernetesVersion == nil)
-        #expect(status.nodeCount == nil)
+        #expect(status.nodeCount == 0)
+        #expect(status.nodeError == nil)
         #expect(status.fluxOperator == .unknown)
         #expect(status.fluxReport == nil)
         #expect(status.fluxSummary == nil)
@@ -319,6 +320,141 @@ import Testing
         status.reachability = .reachable
         status.fluxOperator = .unknown
         #expect(status.fluxInfo == "Flux Operator status unknown")
+    }
+
+    // MARK: - Node Properties
+
+    @Test func nodeCountReturnsZeroForEmptyNodes() {
+        let status = ClusterStatus()
+        #expect(status.nodeCount == 0)
+    }
+
+    @Test func nodeCountReturnsCorrectCount() {
+        var status = ClusterStatus()
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 8 * 1024 * 1024 * 1024, pods: 110),
+            ClusterNode(id: "2", name: "node-2", isReady: true, cpu: 4000, memory: 8 * 1024 * 1024 * 1024, pods: 110),
+            ClusterNode(id: "3", name: "node-3", isReady: false, cpu: 4000, memory: 8 * 1024 * 1024 * 1024, pods: 110),
+        ]
+        #expect(status.nodeCount == 3)
+    }
+
+    @Test func notReadyCountReturnsZeroWhenAllReady() {
+        var status = ClusterStatus()
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 8 * 1024 * 1024 * 1024, pods: 110),
+            ClusterNode(id: "2", name: "node-2", isReady: true, cpu: 4000, memory: 8 * 1024 * 1024 * 1024, pods: 110),
+        ]
+        #expect(status.notReadyCount == 0)
+    }
+
+    @Test func notReadyCountReturnsCorrectCount() {
+        var status = ClusterStatus()
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 8 * 1024 * 1024 * 1024, pods: 110),
+            ClusterNode(id: "2", name: "node-2", isReady: false, cpu: 4000, memory: 8 * 1024 * 1024 * 1024, pods: 110),
+            ClusterNode(id: "3", name: "node-3", isReady: false, cpu: 4000, memory: 8 * 1024 * 1024 * 1024, pods: 110),
+        ]
+        #expect(status.notReadyCount == 2)
+    }
+
+    @Test func totalCPUSumsAllNodes() {
+        var status = ClusterStatus()
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 1024, pods: 10),
+            ClusterNode(id: "2", name: "node-2", isReady: true, cpu: 8000, memory: 1024, pods: 10),
+        ]
+        #expect(status.totalCPU == 12000)
+    }
+
+    @Test func totalMemorySumsAllNodes() {
+        var status = ClusterStatus()
+        let gi = Int64(1024 * 1024 * 1024)
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 8 * gi, pods: 10),
+            ClusterNode(id: "2", name: "node-2", isReady: true, cpu: 4000, memory: 16 * gi, pods: 10),
+        ]
+        #expect(status.totalMemory == 24 * gi)
+    }
+
+    @Test func totalPodsSumsAllNodes() {
+        var status = ClusterStatus()
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 1024, pods: 110),
+            ClusterNode(id: "2", name: "node-2", isReady: true, cpu: 4000, memory: 1024, pods: 250),
+        ]
+        #expect(status.totalPods == 360)
+    }
+
+    // MARK: - Degraded Status with Not Ready Nodes
+
+    @Test func statusLabelDegradedForNotReadyNodes() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 1024, pods: 110),
+            ClusterNode(id: "2", name: "node-2", isReady: false, cpu: 4000, memory: 1024, pods: 110),
+        ]
+        #expect(status.statusLabel == "Degraded")
+    }
+
+    @Test func statusColorYellowForNotReadyNodes() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 1024, pods: 110),
+            ClusterNode(id: "2", name: "node-2", isReady: false, cpu: 4000, memory: 1024, pods: 110),
+        ]
+        #expect(status.statusColor == .yellow)
+    }
+
+    @Test func isDegradedTrueForNotReadyNodes() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: false, cpu: 4000, memory: 1024, pods: 110),
+        ]
+        #expect(status.isDegraded == true)
+    }
+
+    @Test func isDegradedTrueForFluxFailures() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxSummary = makeFluxSummary(failing: 2)
+        #expect(status.isDegraded == true)
+    }
+
+    @Test func isDegradedFalseWhenHealthy() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.nodes = [
+            ClusterNode(id: "1", name: "node-1", isReady: true, cpu: 4000, memory: 1024, pods: 110),
+        ]
+        status.fluxSummary = makeFluxSummary(failing: 0)
+        #expect(status.isDegraded == false)
+    }
+
+    @Test func isDegradedFalseForZeroNodes() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.nodes = []
+        #expect(status.isDegraded == false)
+        #expect(status.statusLabel == "Healthy")
+        #expect(status.statusColor == .green)
+    }
+
+    @Test func isDegradedTrueForNodeError() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.nodeError = "Failed to list nodes"
+        #expect(status.isDegraded == true)
+        #expect(status.statusLabel == "Degraded")
+        #expect(status.statusColor == .yellow)
+    }
+
+    @Test func nodeErrorIsNilByDefault() {
+        let status = ClusterStatus()
+        #expect(status.nodeError == nil)
     }
 
     // MARK: - Test Helpers

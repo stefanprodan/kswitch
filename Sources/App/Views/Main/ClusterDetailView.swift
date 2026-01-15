@@ -28,8 +28,12 @@ struct ClusterDetailView: View {
                         kubernetesInfoSection(status: status)
 
                         if case .unreachable(let error) = status.reachability {
-                            errorPanel(message: error)
-                        } else {
+                            errorPanel(title: "Connection Error", message: error)
+                        } else if let nodeError = status.nodeError {
+                            errorPanel(title: "Node Error", message: nodeError)
+                        }
+
+                        if case .reachable = status.reachability {
                             Divider()
 
                             fluxInfoSection(status: status)
@@ -85,7 +89,7 @@ struct ClusterDetailView: View {
                 Button {
                     Task { await appState.refreshStatus(for: cluster.contextName) }
                 } label: {
-                    if status?.reachability == .checking {
+                    if appState.refreshingContexts.contains(cluster.contextName) {
                         ProgressView()
                             .scaleEffect(0.5)
                             .frame(width: 16, height: 16)
@@ -94,7 +98,7 @@ struct ClusterDetailView: View {
                     }
                 }
                 .buttonStyle(.borderless)
-                .disabled(!cluster.isInKubeconfig || status?.reachability == .checking)
+                .disabled(!cluster.isInKubeconfig || appState.refreshingContexts.contains(cluster.contextName))
                 .help("Refresh cluster status")
             }
         }
@@ -188,11 +192,29 @@ struct ClusterDetailView: View {
                     }
                 }
 
-                if let nodes = status.nodeCount {
+                if status.nodeCount > 0 {
                     GridRow {
                         Text("Nodes")
                             .foregroundStyle(.secondary)
-                        Text("\(nodes)")
+                        HStack(spacing: 6) {
+                            Text("\(status.nodeCount)")
+                                .textSelection(.enabled)
+                            if status.notReadyCount > 0 {
+                                Text("\(status.notReadyCount) Not Ready")
+                                    .font(.caption)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(.yellow.opacity(0.2))
+                                    .foregroundStyle(.yellow)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+
+                    GridRow {
+                        Text("Capacity")
+                            .foregroundStyle(.secondary)
+                        Text("\(status.totalPods) pods · \(ClusterNode.formatCPU(status.totalCPU)) · \(ClusterNode.formatMemory(status.totalMemory))")
                             .textSelection(.enabled)
                     }
                 }
@@ -326,6 +348,7 @@ struct ClusterDetailView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         Text("\(reconciler.stats.running)")
+                            .foregroundStyle(reconciler.stats.running > 0 ? .blue : .primary)
                             .textSelection(.enabled)
                         Text("\(reconciler.stats.failing)")
                             .foregroundStyle(reconciler.stats.failing > 0 ? .red : .primary)
@@ -420,12 +443,12 @@ struct ClusterDetailView: View {
     }
 
     @ViewBuilder
-    private func errorPanel(message: String) -> some View {
+    private func errorPanel(title: String, message: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.yellow)
-                Text("Connection Error")
+                Text(title)
                     .font(.headline)
             }
 

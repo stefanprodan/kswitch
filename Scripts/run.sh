@@ -89,11 +89,6 @@ if compgen -G "${BUILD_DIR}/*.framework" >/dev/null; then
   install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/$APP_NAME"
 fi
 
-# Icon
-if [[ -f "$ROOT/Icon.icns" ]]; then
-  cp "$ROOT/Icon.icns" "$APP/Contents/Resources/Icon.icns"
-fi
-
 # Clean extended attributes
 chmod -R u+w "$APP"
 xattr -cr "$APP"

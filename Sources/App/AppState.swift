@@ -13,6 +13,7 @@ final class AppState {
     // Runtime
     var currentContext: String = ""
     var clusterStatuses: [String: ClusterStatus] = [:]
+    var refreshingContexts: Set<String> = []
     var isRefreshing: Bool = false
     var error: String?
     var pendingClusterNavigation: Cluster?
@@ -105,63 +106,14 @@ final class AppState {
 
     // MARK: - Storage
 
-    private var storageURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("KSwitch", isDirectory: true)
-    }
-
-    private var clustersFileURL: URL {
-        storageURL.appendingPathComponent("clusters.json")
-    }
-
-    private var settingsFileURL: URL {
-        storageURL.appendingPathComponent("settings.json")
-    }
-
     func loadFromDisk() {
-        let fm = FileManager.default
-
-        // Load clusters
-        if fm.fileExists(atPath: clustersFileURL.path) {
-            do {
-                let data = try Data(contentsOf: clustersFileURL)
-                clusters = try JSONDecoder().decode([Cluster].self, from: data)
-            } catch {
-                AppLog.error("Failed to load clusters: \(error)")
-            }
-        }
-
-        // Load settings
-        if fm.fileExists(atPath: settingsFileURL.path) {
-            do {
-                let data = try Data(contentsOf: settingsFileURL)
-                settings = try JSONDecoder().decode(AppSettings.self, from: data)
-            } catch {
-                AppLog.error("Failed to load settings: \(error)")
-            }
-        }
+        clusters = AppStorage.shared.loadClusters()
+        settings = AppStorage.shared.loadSettings()
     }
 
     func saveToDisk() {
-        let fm = FileManager.default
-
-        do {
-            // Ensure directory exists
-            try fm.createDirectory(at: storageURL, withIntermediateDirectories: true)
-
-            // Save clusters
-            let clustersData = try JSONEncoder().encode(clusters)
-            try clustersData.write(to: clustersFileURL)
-
-            // Save settings
-            let settingsData = try JSONEncoder().encode(settings)
-            try settingsData.write(to: settingsFileURL)
-
-            // Restart kubeconfig watcher in case the path changed
-            setupKubeconfigWatcher()
-        } catch {
-            AppLog.error("Failed to save: \(error)")
-        }
+        AppStorage.shared.save(clusters: clusters, settings: settings)
+        setupKubeconfigWatcher()
     }
 
     // MARK: - Background Refresh
@@ -208,35 +160,7 @@ final class AppState {
         do {
             let contextNames = try await getKubectl().getContexts()
             currentContext = (try? await getKubectl().getCurrentContext()) ?? ""
-
-            // Build a map of existing clusters by context name
-            let existingByContext = Dictionary(uniqueKeysWithValues: clusters.map { ($0.contextName, $0) })
-
-            // Track which contexts are still in kubeconfig
-            var seenContexts = Set<String>()
-            var updated: [Cluster] = []
-
-            for (index, name) in contextNames.enumerated() {
-                seenContexts.insert(name)
-                if var existing = existingByContext[name] {
-                    existing.sortOrder = index
-                    existing.isInKubeconfig = true
-                    updated.append(existing)
-                } else {
-                    var new = Cluster(contextName: name)
-                    new.sortOrder = index
-                    updated.append(new)
-                }
-            }
-
-            // Keep clusters that were removed from kubeconfig (grayed out)
-            for cluster in clusters where !seenContexts.contains(cluster.contextName) {
-                var removed = cluster
-                removed.isInKubeconfig = false
-                updated.append(removed)
-            }
-
-            clusters = updated.sorted { $0.sortOrder < $1.sortOrder }
+            clusters = clusters.synced(with: contextNames)
             saveToDisk()
             error = nil
         } catch {
@@ -258,11 +182,19 @@ final class AppState {
     // MARK: - Status Refresh
 
     func refreshStatus(for contextName: String) async {
+        refreshingContexts.insert(contextName)
+        defer { refreshingContexts.remove(contextName) }
+
         let previousStatus = clusterStatuses[contextName]
         var status = clusterStatuses[contextName] ?? ClusterStatus()
-        status.reachability = .checking
-        status.fluxOperator = .checking
-        clusterStatuses[contextName] = status
+
+        // Only publish checking state if we don't have previous data
+        // This prevents UI flickering by keeping stale data visible
+        if previousStatus == nil {
+            status.reachability = .checking
+            status.fluxOperator = .checking
+            clusterStatuses[contextName] = status
+        }
 
         let clusterName = cluster(for: contextName)?.effectiveName ?? contextName
 
@@ -298,11 +230,23 @@ final class AppState {
             return
         }
 
-        // Fetch node count and Flux report concurrently
-        async let nodeCount = kubectlService.getNodeCount(context: contextName)
+        // Fetch nodes and Flux report concurrently
+        async let nodesTask = kubectlService.getNodes(context: contextName)
         async let fluxReport = kubectlService.getFluxReport(context: contextName)
 
-        status.nodeCount = try? await nodeCount
+        // Process nodes
+        do {
+            status.nodes = try await nodesTask
+            status.nodeError = nil
+        } catch {
+            status.nodes = []
+            if let kswitchError = error as? KSwitchError {
+                status.nodeError = kswitchError.errorDescription ?? error.localizedDescription
+            } else {
+                status.nodeError = error.localizedDescription
+            }
+            AppLog.warning("Failed to get nodes for \(contextName): \(status.nodeError ?? "unknown")")
+        }
 
         // Process Flux report
         do {

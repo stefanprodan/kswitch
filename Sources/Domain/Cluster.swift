@@ -62,4 +62,38 @@ extension [Cluster] {
 
         return favorites + nonFavorites + hidden
     }
+
+    /// Syncs clusters with context names from kubeconfig.
+    /// - New contexts create new clusters
+    /// - Existing contexts preserve customizations (displayName, color, favorite, hidden)
+    /// - Removed contexts are marked as not in kubeconfig
+    /// - Returns sorted by kubeconfig order, with removed clusters at the end
+    public func synced(with contextNames: [String]) -> [Cluster] {
+        let existingByContext = Dictionary(uniqueKeysWithValues: map { ($0.contextName, $0) })
+        var seenContexts = Set<String>()
+        var result: [Cluster] = []
+
+        // Process contexts in kubeconfig order
+        for (index, name) in contextNames.enumerated() {
+            seenContexts.insert(name)
+            if var existing = existingByContext[name] {
+                existing.sortOrder = index
+                existing.isInKubeconfig = true
+                result.append(existing)
+            } else {
+                var new = Cluster(contextName: name)
+                new.sortOrder = index
+                result.append(new)
+            }
+        }
+
+        // Keep clusters that were removed from kubeconfig
+        for cluster in self where !seenContexts.contains(cluster.contextName) {
+            var removed = cluster
+            removed.isInKubeconfig = false
+            result.append(removed)
+        }
+
+        return result.sorted { $0.sortOrder < $1.sortOrder }
+    }
 }

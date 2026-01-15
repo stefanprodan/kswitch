@@ -99,18 +99,29 @@ import Mockable
         }
     }
 
-    // MARK: - getNodeCount Tests
+    // MARK: - getNodes Tests
 
-    @Test func getNodeCountParsesJSON() async throws {
+    @Test func getNodesParsesJSON() async throws {
         let mock = MockCommandRunner()
         let nodesJSON = """
         {
             "apiVersion": "v1",
             "kind": "NodeList",
             "items": [
-                {"metadata": {"name": "node1"}},
-                {"metadata": {"name": "node2"}},
-                {"metadata": {"name": "node3"}}
+                {
+                    "metadata": {"uid": "uid-1", "name": "node-1"},
+                    "status": {
+                        "conditions": [{"type": "Ready", "status": "True"}],
+                        "allocatable": {"cpu": "4", "memory": "8Gi", "pods": "110"}
+                    }
+                },
+                {
+                    "metadata": {"uid": "uid-2", "name": "node-2"},
+                    "status": {
+                        "conditions": [{"type": "Ready", "status": "False"}],
+                        "allocatable": {"cpu": "2000m", "memory": "4096Mi", "pods": "50"}
+                    }
+                }
             ]
         }
         """
@@ -119,12 +130,26 @@ import Mockable
             .willReturn(CommandResult(output: nodesJSON, exitCode: 0))
 
         let kubectl = KubectlRunner(runner: mock, settings: testSettings)
-        let count = try await kubectl.getNodeCount(context: "test-ctx")
+        let nodes = try await kubectl.getNodes(context: "test-ctx")
 
-        #expect(count == 3)
+        #expect(nodes.count == 2)
+
+        #expect(nodes[0].id == "uid-1")
+        #expect(nodes[0].name == "node-1")
+        #expect(nodes[0].isReady == true)
+        #expect(nodes[0].cpu == 4000)
+        #expect(nodes[0].memory == 8 * 1024 * 1024 * 1024)
+        #expect(nodes[0].pods == 110)
+
+        #expect(nodes[1].id == "uid-2")
+        #expect(nodes[1].name == "node-2")
+        #expect(nodes[1].isReady == false)
+        #expect(nodes[1].cpu == 2000)
+        #expect(nodes[1].memory == 4096 * 1024 * 1024)
+        #expect(nodes[1].pods == 50)
     }
 
-    @Test func getNodeCountReturnsZeroForEmptyList() async throws {
+    @Test func getNodesReturnsEmptyArrayForEmptyList() async throws {
         let mock = MockCommandRunner()
         let nodesJSON = """
         {"items": []}
@@ -134,9 +159,62 @@ import Mockable
             .willReturn(CommandResult(output: nodesJSON, exitCode: 0))
 
         let kubectl = KubectlRunner(runner: mock, settings: testSettings)
-        let count = try await kubectl.getNodeCount(context: "test-ctx")
+        let nodes = try await kubectl.getNodes(context: "test-ctx")
 
-        #expect(count == 0)
+        #expect(nodes.isEmpty)
+    }
+
+    @Test func getNodesHandlesMissingAllocatable() async throws {
+        let mock = MockCommandRunner()
+        let nodesJSON = """
+        {
+            "items": [
+                {
+                    "metadata": {"uid": "uid-1", "name": "node-1"},
+                    "status": {
+                        "conditions": [{"type": "Ready", "status": "True"}]
+                    }
+                }
+            ]
+        }
+        """
+        given(mock)
+            .run(.any, args: .any, environment: .any, timeout: .any)
+            .willReturn(CommandResult(output: nodesJSON, exitCode: 0))
+
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let nodes = try await kubectl.getNodes(context: "test-ctx")
+
+        #expect(nodes.count == 1)
+        #expect(nodes[0].cpu == 0)
+        #expect(nodes[0].memory == 0)
+        #expect(nodes[0].pods == 0)
+    }
+
+    @Test func getNodesHandlesMissingReadyCondition() async throws {
+        let mock = MockCommandRunner()
+        let nodesJSON = """
+        {
+            "items": [
+                {
+                    "metadata": {"uid": "uid-1", "name": "node-1"},
+                    "status": {
+                        "conditions": [{"type": "DiskPressure", "status": "False"}],
+                        "allocatable": {"cpu": "4", "memory": "8Gi", "pods": "110"}
+                    }
+                }
+            ]
+        }
+        """
+        given(mock)
+            .run(.any, args: .any, environment: .any, timeout: .any)
+            .willReturn(CommandResult(output: nodesJSON, exitCode: 0))
+
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let nodes = try await kubectl.getNodes(context: "test-ctx")
+
+        #expect(nodes.count == 1)
+        #expect(nodes[0].isReady == false)
     }
 
     // MARK: - getFluxReport Tests

@@ -29,7 +29,8 @@ public struct ClusterStatus: Sendable {
 
     public var reachability: Reachability = .unknown
     public var kubernetesVersion: String?
-    public var nodeCount: Int?
+    public var nodes: [ClusterNode] = []
+    public var nodeError: String?
     public var fluxOperator: FluxOperatorState = .unknown
     public var fluxReport: FluxReportSpec?
     public var fluxSummary: FluxReportSummary?
@@ -37,24 +38,56 @@ public struct ClusterStatus: Sendable {
 
     public init() {}
 
+    // MARK: - Node Computed Properties
+
+    public var nodeCount: Int {
+        nodes.count
+    }
+
+    public var notReadyCount: Int {
+        nodes.filter { !$0.isReady }.count
+    }
+
+    public var totalCPU: Int {
+        nodes.reduce(0) { $0 + $1.cpu }
+    }
+
+    public var totalMemory: Int64 {
+        nodes.reduce(0) { $0 + $1.memory }
+    }
+
+    public var totalPods: Int {
+        nodes.reduce(0) { $0 + $1.pods }
+    }
+
+    /// Returns true if any nodes are not ready
+    public var hasNotReadyNodes: Bool {
+        notReadyCount > 0
+    }
+
+    /// Returns true if cluster is degraded (Flux failures, not-ready nodes, or node fetch error)
+    public var isDegraded: Bool {
+        if let summary = fluxSummary, summary.totalFailing > 0 {
+            return true
+        }
+        if nodeError != nil {
+            return true
+        }
+        return hasNotReadyNodes
+    }
+
     public var statusColor: StatusColor {
         switch reachability {
         case .unknown, .checking:
             // Show previous status color if we have data
             if kubernetesVersion != nil {
-                if let summary = fluxSummary, summary.totalFailing > 0 {
-                    return .yellow
-                }
-                return .green
+                return isDegraded ? .yellow : .green
             }
             return .gray
         case .unreachable:
             return .red
         case .reachable:
-            if let summary = fluxSummary, summary.totalFailing > 0 {
-                return .yellow
-            }
-            return .green
+            return isDegraded ? .yellow : .green
         }
     }
 
@@ -62,19 +95,13 @@ public struct ClusterStatus: Sendable {
     public var statusLabel: String {
         switch reachability {
         case .reachable:
-            if let summary = fluxSummary, summary.totalFailing > 0 {
-                return "Degraded"
-            }
-            return "Healthy"
+            return isDegraded ? "Degraded" : "Healthy"
         case .unreachable:
             return "Offline"
         case .checking:
             // Show previous status if we have data
             if kubernetesVersion != nil {
-                if let summary = fluxSummary, summary.totalFailing > 0 {
-                    return "Degraded"
-                }
-                return "Healthy"
+                return isDegraded ? "Degraded" : "Healthy"
             }
             return "Checking"
         case .unknown:

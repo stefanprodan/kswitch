@@ -103,15 +103,59 @@ public actor KubectlRunner {
         return response.serverVersion.gitVersion
     }
 
-    public func getNodeCount(context: String) async throws -> Int {
+    public func getNodes(context: String) async throws -> [ClusterNode] {
         struct NodeList: Decodable {
             let items: [NodeItem]
-            struct NodeItem: Decodable {}
+        }
+
+        struct NodeItem: Decodable {
+            let metadata: NodeMetadata
+            let status: NodeStatus
+        }
+
+        struct NodeMetadata: Decodable {
+            let uid: String
+            let name: String
+        }
+
+        struct NodeStatus: Decodable {
+            let conditions: [NodeCondition]?
+            let allocatable: NodeAllocatable?
+        }
+
+        struct NodeCondition: Decodable {
+            let type: String
+            let status: String
+        }
+
+        struct NodeAllocatable: Decodable {
+            let cpu: String?
+            let memory: String?
+            let pods: String?
         }
 
         let output = try await run(["get", "nodes", "-o", "json"], context: context)
-        let nodes = try JSONDecoder().decode(NodeList.self, from: Data(output.utf8))
-        return nodes.items.count
+        let nodeList = try JSONDecoder().decode(NodeList.self, from: Data(output.utf8))
+
+        return nodeList.items.map { item in
+            // Find Ready condition
+            let isReady = item.status.conditions?
+                .first { $0.type == "Ready" }?
+                .status == "True"
+
+            let cpu = item.status.allocatable?.cpu.map { ClusterNode.parseCPU($0) } ?? 0
+            let memory = item.status.allocatable?.memory.map { ClusterNode.parseMemory($0) } ?? 0
+            let pods = item.status.allocatable?.pods.flatMap { Int($0) } ?? 0
+
+            return ClusterNode(
+                id: item.metadata.uid,
+                name: item.metadata.name,
+                isReady: isReady,
+                cpu: cpu,
+                memory: memory,
+                pods: pods
+            )
+        }
     }
 
     public func getFluxReport(context: String) async throws -> FluxReportSpec {

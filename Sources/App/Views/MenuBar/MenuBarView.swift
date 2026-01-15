@@ -319,10 +319,7 @@ struct MenuBarView: View {
     }
 
     private var isCurrentClusterRefreshing: Bool {
-        guard let status = appState.clusterStatuses[appState.currentContext] else {
-            return false
-        }
-        return status.reachability == .checking
+        appState.refreshingContexts.contains(appState.currentContext)
     }
 
     private var refreshButton: some View {
