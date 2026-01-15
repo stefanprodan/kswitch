@@ -3,9 +3,15 @@
 
 import SwiftUI
 import Domain
+#if ENABLE_SPARKLE
+import Sparkle
+#endif
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    #if ENABLE_SPARKLE
+    @Environment(\.sparkleUpdater) private var sparkleUpdater
+    #endif
     @State private var kubeconfigPath: String = ""
     @State private var kubectlPath: String = ""
 
@@ -85,6 +91,9 @@ struct SettingsView: View {
 
                 Toggle("Check for updates", isOn: $state.settings.autoupdate)
                     .onChange(of: state.settings.autoupdate) {
+                        #if ENABLE_SPARKLE
+                        sparkleUpdater?.automaticallyChecksForUpdates = state.settings.autoupdate
+                        #endif
                         appState.saveToDisk()
                     }
             }

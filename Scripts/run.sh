@@ -10,6 +10,11 @@
 #   MACOS_MIN_VERSION  Minimum macOS version
 #   MARKETING_VERSION  Version string (e.g., 1.0.0)
 #   BUILD_NUMBER       Build number
+#
+# Optional environment variables:
+#   BUILD_CONFIG       Build configuration: debug or release (default: release)
+#   SPARKLE_FEED_URL   Sparkle appcast URL
+#   SPARKLE_PUBLIC_KEY Sparkle EdDSA public key
 
 set -euo pipefail
 
@@ -21,6 +26,8 @@ cd "$ROOT"
 : "${MACOS_MIN_VERSION:?MACOS_MIN_VERSION is required}"
 : "${MARKETING_VERSION:?MARKETING_VERSION is required}"
 : "${BUILD_NUMBER:?BUILD_NUMBER is required}"
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
+SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}"
 
 APP="$ROOT/${APP_NAME}.app"
 APP_PROCESS_PATTERN="${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
@@ -37,8 +44,9 @@ pkill -x "${APP_NAME}" 2>/dev/null || true
 
 # Build
 HOST_ARCH=$(uname -m)
-log "==> Building (${HOST_ARCH})"
-swift build -c release --arch "$HOST_ARCH"
+BUILD_CONFIG="${BUILD_CONFIG:-release}"
+log "==> Building (${HOST_ARCH}, ${BUILD_CONFIG})"
+swift build -c "$BUILD_CONFIG" --arch "$HOST_ARCH"
 
 # Create app bundle
 log "==> Packaging"
@@ -66,12 +74,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIconFile</key><string>Icon</string>
     <key>BuildTimestamp</key><string>${BUILD_TIMESTAMP}</string>
     <key>GitCommit</key><string>${GIT_COMMIT}</string>
+    <key>SUFeedURL</key><string>${SPARKLE_FEED_URL}</string>
+    <key>SUPublicEDKey</key><string>${SPARKLE_PUBLIC_KEY}</string>
 </dict>
 </plist>
 PLIST
 
 # Install binary
-BUILD_DIR=".build/${HOST_ARCH}-apple-macosx/release"
+BUILD_DIR=".build/${HOST_ARCH}-apple-macosx/${BUILD_CONFIG}"
 BINARY_SRC="${BUILD_DIR}/${APP_NAME}"
 if [[ ! -f "$BINARY_SRC" ]]; then
   fail "Missing binary at ${BINARY_SRC}"

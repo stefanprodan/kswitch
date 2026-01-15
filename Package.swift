@@ -56,6 +56,7 @@ let package = Package(
             ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency"),
+                .define("ENABLE_SPARKLE"),
             ]
         ),
 

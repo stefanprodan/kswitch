@@ -4,17 +4,27 @@
 import SwiftUI
 import Domain
 import Infrastructure
+#if ENABLE_SPARKLE
+import Sparkle
+#endif
 
 @main
 struct KSwitchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var appState = AppState()
 
+    #if ENABLE_SPARKLE
+    @State private var sparkleUpdater = SparkleUpdater()
+    #endif
+
     var body: some Scene {
         // Menu bar
         MenuBarExtra {
             MenuBarView()
                 .environment(appState)
+                #if ENABLE_SPARKLE
+                .environment(\.sparkleUpdater, sparkleUpdater)
+                #endif
         } label: {
             MenuBarIcon()
         }
@@ -24,6 +34,9 @@ struct KSwitchApp: App {
         Window("KSwitch", id: "main") {
             MainWindow()
                 .environment(appState)
+                #if ENABLE_SPARKLE
+                .environment(\.sparkleUpdater, sparkleUpdater)
+                #endif
                 .containerBackground(.background, for: .window)
                 .onAppear {
                     // Show in Dock when window opens

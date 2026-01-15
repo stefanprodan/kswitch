@@ -10,6 +10,10 @@
 #   MACOS_MIN_VERSION  Minimum macOS version
 #   MARKETING_VERSION  Version string (e.g., 1.0.0)
 #   BUILD_NUMBER       Build number
+#
+# Optional environment variables:
+#   SPARKLE_FEED_URL   Sparkle appcast URL
+#   SPARKLE_PUBLIC_KEY Sparkle EdDSA public key
 
 set -euo pipefail
 
@@ -21,6 +25,8 @@ cd "$ROOT"
 : "${MACOS_MIN_VERSION:?MACOS_MIN_VERSION is required}"
 : "${MARKETING_VERSION:?MARKETING_VERSION is required}"
 : "${BUILD_NUMBER:?BUILD_NUMBER is required}"
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
+SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}"
 
 APP="$ROOT/${APP_NAME}.app"
 
@@ -58,6 +64,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIconFile</key><string>Icon</string>
     <key>BuildTimestamp</key><string>${BUILD_TIMESTAMP}</string>
     <key>GitCommit</key><string>${GIT_COMMIT}</string>
+    <key>SUFeedURL</key><string>${SPARKLE_FEED_URL}</string>
+    <key>SUPublicEDKey</key><string>${SPARKLE_PUBLIC_KEY}</string>
 </dict>
 </plist>
 PLIST

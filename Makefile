@@ -11,12 +11,22 @@ BUNDLE_ID := com.stefanprodan.kswitch
 MACOS_MIN_VERSION := 15.0
 MARKETING_VERSION := 0.0.1-devel
 BUILD_NUMBER := 1
+SPARKLE_PUBLIC_KEY := MfrlXRkKGSeOdKGJiIgMSmOX9oZQJHd1DSiNhM2WpT4=
+SPARKLE_FEED_URL := https://raw.githubusercontent.com/stefanprodan/kswitch/main/appcast.xml
 
-## run: Build, package, and launch the app
+## run: Build, package, and launch in production mode
 .PHONY: run
 run:
 	@APP_NAME=$(APP_NAME) BUNDLE_ID=$(BUNDLE_ID) MACOS_MIN_VERSION=$(MACOS_MIN_VERSION) \
-		MARKETING_VERSION=$(MARKETING_VERSION) BUILD_NUMBER=$(BUILD_NUMBER) ./Scripts/run.sh
+		MARKETING_VERSION=$(MARKETING_VERSION) BUILD_NUMBER=$(BUILD_NUMBER) \
+		SPARKLE_PUBLIC_KEY=$(SPARKLE_PUBLIC_KEY) SPARKLE_FEED_URL=$(SPARKLE_FEED_URL) ./Scripts/run.sh
+
+## dev: Build and launch in debug mode
+.PHONY: dev
+dev:
+	@APP_NAME=$(APP_NAME) BUNDLE_ID=$(BUNDLE_ID) MACOS_MIN_VERSION=$(MACOS_MIN_VERSION) \
+		MARKETING_VERSION=$(MARKETING_VERSION) BUILD_NUMBER=$(BUILD_NUMBER) \
+		BUILD_CONFIG=debug ./Scripts/run.sh
 
 ## build: Build debug binary
 .PHONY: build
@@ -64,7 +74,8 @@ print-settings:
 .PHONY: package
 package:
 	@APP_NAME=$(APP_NAME) BUNDLE_ID=$(BUNDLE_ID) MACOS_MIN_VERSION=$(MACOS_MIN_VERSION) \
-		MARKETING_VERSION=$(MARKETING_VERSION) BUILD_NUMBER=$(BUILD_NUMBER) ./Scripts/package.sh
+		MARKETING_VERSION=$(MARKETING_VERSION) BUILD_NUMBER=$(BUILD_NUMBER) \
+		SPARKLE_PUBLIC_KEY=$(SPARKLE_PUBLIC_KEY) SPARKLE_FEED_URL=$(SPARKLE_FEED_URL) ./Scripts/package.sh
 
 ## sign: Sign app bundle (requires APPLE_SIGNING_IDENTITY env var)
 .PHONY: sign

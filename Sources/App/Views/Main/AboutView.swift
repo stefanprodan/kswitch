@@ -4,9 +4,15 @@
 import SwiftUI
 import Domain
 import Infrastructure
+#if ENABLE_SPARKLE
+import Sparkle
+#endif
 
 struct AboutView: View {
     @Environment(\.openURL) private var openURL
+    #if ENABLE_SPARKLE
+    @Environment(\.sparkleUpdater) private var sparkleUpdater
+    #endif
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
@@ -24,6 +30,12 @@ struct AboutView: View {
                 Divider()
 
                 feedbackSection
+
+                #if ENABLE_SPARKLE
+                Divider()
+
+                updatesSection
+                #endif
 
                 Spacer()
             }
@@ -113,4 +125,33 @@ struct AboutView: View {
             .buttonStyle(.borderedProminent)
         }
     }
+
+    #if ENABLE_SPARKLE
+    @ViewBuilder
+    private var updatesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Updates")
+                .font(.headline)
+
+            if sparkleUpdater?.isAvailable == true {
+                Button {
+                    sparkleUpdater?.checkForUpdates()
+                } label: {
+                    Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .disabled(sparkleUpdater?.canCheckForUpdates != true)
+
+                if let lastCheck = sparkleUpdater?.lastUpdateCheckDate {
+                    Text("Last checked: \(lastCheck.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("Updates unavailable in debug builds")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+    #endif
 }
