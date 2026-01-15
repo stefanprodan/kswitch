@@ -40,15 +40,104 @@ public struct ClusterStatus: Sendable {
     public var statusColor: StatusColor {
         switch reachability {
         case .unknown, .checking:
+            // Show previous status color if we have data
+            if kubernetesVersion != nil {
+                if let summary = fluxSummary, summary.totalFailing > 0 {
+                    return .yellow
+                }
+                return .green
+            }
             return .gray
         case .unreachable:
             return .red
         case .reachable:
-            if let summary = fluxSummary {
-                return summary.statusColor
+            if let summary = fluxSummary, summary.totalFailing > 0 {
+                return .yellow
             }
             return .green
         }
+    }
+
+    /// Status label for display: "Healthy", "Degraded", "Offline", "Checking", "Unknown"
+    public var statusLabel: String {
+        switch reachability {
+        case .reachable:
+            if let summary = fluxSummary, summary.totalFailing > 0 {
+                return "Degraded"
+            }
+            return "Healthy"
+        case .unreachable:
+            return "Offline"
+        case .checking:
+            // Show previous status if we have data
+            if kubernetesVersion != nil {
+                if let summary = fluxSummary, summary.totalFailing > 0 {
+                    return "Degraded"
+                }
+                return "Healthy"
+            }
+            return "Checking"
+        case .unknown:
+            return "Unknown"
+        }
+    }
+
+    /// Kubernetes info for display, e.g., "Kubernetes v1.30.1"
+    public var kubernetesInfo: String {
+        switch reachability {
+        case .checking:
+            if let version = kubernetesVersion {
+                return "Kubernetes \(version)"
+            }
+            return "Checking Kubernetes..."
+        case .reachable:
+            if let version = kubernetesVersion {
+                return "Kubernetes \(version)"
+            }
+            return "Kubernetes connected"
+        case .unreachable:
+            return "Kubernetes unreachable"
+        case .unknown:
+            return "Kubernetes status unknown"
+        }
+    }
+
+    /// Flux info for display, e.g., "Flux v2.4.0 · Operator v0.14.0"
+    public var fluxInfo: String {
+        if case .unreachable = reachability {
+            return "Flux Operator unreachable"
+        }
+
+        switch fluxOperator {
+        case .checking:
+            if let summary = fluxSummary {
+                return formatFluxVersions(summary)
+            }
+            return "Checking Flux Operator..."
+        case .installed, .degraded:
+            if let summary = fluxSummary {
+                return formatFluxVersions(summary)
+            }
+            return "Flux Operator installed"
+        case .notInstalled:
+            return "Flux Operator not installed"
+        case .unknown:
+            return "Flux Operator status unknown"
+        }
+    }
+
+    private func formatFluxVersions(_ summary: FluxReportSummary) -> String {
+        let flux = summary.distributionVersion
+        let op = summary.operatorVersion
+
+        if flux != "unknown" && op != "unknown" {
+            return "Flux \(flux) · Operator \(op)"
+        } else if op != "unknown" {
+            return "Flux Operator \(op)"
+        } else if flux != "unknown" {
+            return "Flux \(flux)"
+        }
+        return "Flux Operator installed"
     }
 }
 

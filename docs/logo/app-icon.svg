@@ -1,18 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <!-- App Icon: Toggle switch with Flux CD blue -->
+  <!-- App Icon: Hexagon with bidirectional arrows on blue gradient -->
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3570e3"/>
-      <stop offset="100%" style="stop-color:#0096e1"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3478F6"/>
+      <stop offset="100%" style="stop-color:#0A84FF"/>
     </linearGradient>
   </defs>
 
   <!-- Rounded rectangle background -->
-  <rect x="8" y="8" width="240" height="240" rx="48" ry="48" fill="url(#bg)"/>
+  <rect x="0" y="0" width="256" height="256" rx="57" ry="57" fill="url(#bg)"/>
 
-  <!-- Toggle switch track -->
-  <rect x="28" y="88" width="200" height="80" rx="40" ry="40" fill="rgba(255,255,255,0.3)"/>
-
-  <!-- Toggle switch knob -->
-  <circle cx="188" cy="128" r="32" fill="white"/>
+  <!-- Hexagon with arrows (centered and scaled) -->
+  <g transform="translate(48, 48) scale(10)">
+    <path fill="white" fill-rule="evenodd" d="M7.223.183a1.75 1.75 0 0 1 1.518 0l4.996 2.406c.48.231.829.668.947 1.187l1.234 5.407a1.75 1.75 0 0 1-.338 1.48l-3.233 4.054a.75.75 0 1 1-1.173-.935l3.233-4.054a.25.25 0 0 0 .049-.212L13.222 4.11a.25.25 0 0 0-.136-.17L8.09 1.536a.25.25 0 0 0-.217 0L2.878 3.94a.25.25 0 0 0-.136.17L1.508 9.515a.25.25 0 0 0 .049.212l3.233 4.054a.75.75 0 1 1-1.173.935L.384 10.663a1.75 1.75 0 0 1-.338-1.48L1.28 3.776a1.75 1.75 0 0 1 .947-1.187zM5.22 11.16a.75.75 0 0 0 0 1.06l2.25 2.25L8 15l.53-.53l2.25-2.25a.75.75 0 1 0-1.06-1.06l-.97.97V5.87l.97.97a.75.75 0 1 0 1.06-1.06L8.53 3.53L8 3l-.53.53l-2.25 2.25a.75.75 0 0 0 1.06 1.06l.97-.97v6.26l-.97-.97a.75.75 0 0 0-1.06 0" clip-rule="evenodd"/>
+  </g>
 </svg>

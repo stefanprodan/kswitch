@@ -9,19 +9,7 @@ struct ClustersListView: View {
     @State private var clusterToEdit: Cluster?
 
     private var sortedClusters: [Cluster] {
-        let favorites = appState.clusters
-            .filter { $0.isFavorite && !$0.isHidden }
-            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
-
-        let nonFavorites = appState.clusters
-            .filter { !$0.isFavorite && !$0.isHidden }
-            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
-
-        let hidden = appState.clusters
-            .filter { $0.isHidden }
-            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
-
-        return favorites + nonFavorites + hidden
+        appState.clusters.sortedByFavorites()
     }
 
     private var filteredClusters: [Cluster] {
@@ -198,140 +186,29 @@ struct ClusterRow: View {
         if cluster.isHidden {
             return "Hidden"
         }
-
-        guard let status = status else {
-            return "Unknown"
-        }
-
-        switch status.reachability {
-        case .reachable:
-            if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                return "Degraded"
-            }
-            return "Healthy"
-        case .unreachable:
-            return "Offline"
-        case .checking:
-            if status.kubernetesVersion != nil {
-                if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                    return "Degraded"
-                }
-                return "Healthy"
-            }
-            return "Checking"
-        case .unknown:
-            return "Unknown"
-        }
+        return status?.statusLabel ?? "Unknown"
     }
 
     private var statusColor: Color {
         if cluster.isHidden {
             return .gray
         }
-
-        guard let status = status else {
-            return .gray
-        }
-
-        switch status.reachability {
-        case .reachable:
-            if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                return .yellow
-            }
-            return .green
-        case .unreachable:
-            return .red
-        case .checking:
-            if status.kubernetesVersion != nil {
-                if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                    return .yellow
-                }
-                return .green
-            }
-            return .gray
-        case .unknown:
-            return .gray
-        }
+        return status?.statusColor.toSwiftUIColor ?? .gray
     }
 
-    // MARK: - Version Text
+    // MARK: - Info Text
 
     private var kubernetesText: String {
         if cluster.isHidden {
             return "Status check paused"
         }
-
-        guard let status = status else {
-            return "Kubernetes status unknown"
-        }
-
-        switch status.reachability {
-        case .checking:
-            if let version = status.kubernetesVersion {
-                return formatKubernetesLine(version: version, nodes: status.nodeCount)
-            }
-            return "Checking Kubernetes..."
-        case .reachable:
-            if let version = status.kubernetesVersion {
-                return formatKubernetesLine(version: version, nodes: status.nodeCount)
-            }
-            return "Kubernetes connected"
-        case .unreachable:
-            return "Kubernetes unreachable"
-        case .unknown:
-            return "Kubernetes status unknown"
-        }
-    }
-
-    private func formatKubernetesLine(version: String, nodes: Int?) -> String {
-        if let nodes = nodes {
-            return "Kubernetes \(version) · \(nodes) \(nodes == 1 ? "node" : "nodes")"
-        }
-        return "Kubernetes \(version)"
+        return status?.kubernetesInfo ?? "Kubernetes status unknown"
     }
 
     private var fluxText: String {
         if cluster.isHidden {
             return ""
         }
-
-        guard let status = status else {
-            return "Flux status unknown"
-        }
-
-        if case .unreachable = status.reachability {
-            return "Flux unreachable"
-        }
-
-        switch status.fluxOperator {
-        case .checking:
-            if let summary = status.fluxSummary {
-                return formatFluxLine(summary)
-            }
-            return "Checking Flux..."
-        case .installed, .degraded:
-            if let summary = status.fluxSummary {
-                return formatFluxLine(summary)
-            }
-            return "Flux installed"
-        case .notInstalled:
-            return "Flux not installed"
-        case .unknown:
-            return "Flux status unknown"
-        }
-    }
-
-    private func formatFluxLine(_ summary: FluxReportSummary) -> String {
-        let flux = summary.distributionVersion
-        let op = summary.operatorVersion
-
-        if flux != "unknown" && op != "unknown" {
-            return "Flux \(flux) · Operator \(op)"
-        } else if op != "unknown" {
-            return "Flux Operator \(op)"
-        } else if flux != "unknown" {
-            return "Flux \(flux)"
-        }
-        return "Flux installed"
+        return status?.fluxInfo ?? "Flux Operator status unknown"
     }
 }

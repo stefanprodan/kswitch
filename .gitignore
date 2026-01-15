@@ -66,6 +66,7 @@ fastlane/test_output
 
 # Temporary files
 tmp/
+Icon.iconset/
 
 # AI files
 plans/

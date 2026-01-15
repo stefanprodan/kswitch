@@ -7,6 +7,17 @@ extension Cluster {
     }
 }
 
+extension StatusColor {
+    var toSwiftUIColor: Color {
+        switch self {
+        case .green: return .green
+        case .yellow: return .yellow
+        case .red: return .red
+        case .gray: return .gray
+        }
+    }
+}
+
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

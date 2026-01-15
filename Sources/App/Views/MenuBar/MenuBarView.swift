@@ -95,9 +95,9 @@ struct MenuBarView: View {
                     // Status badge
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(statusColor(for: cluster))
+                            .fill(statusColorFor(cluster))
                             .frame(width: 6, height: 6)
-                        Text(statusLabel(for: cluster))
+                        Text(statusLabelFor(cluster))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
@@ -121,13 +121,13 @@ struct MenuBarView: View {
                 // Info rows
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(kubernetesVersionText(for: cluster))
+                        Text(kubernetesInfoFor(cluster))
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.tail)
 
-                        Text(fluxOperatorText(for: cluster))
+                        Text(fluxInfoFor(cluster))
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -160,30 +160,8 @@ struct MenuBarView: View {
         .help(cluster.contextName)
     }
 
-    private func statusLabel(for cluster: Cluster) -> String {
-        guard let status = appState.clusterStatuses[cluster.contextName] else {
-            return "Unknown"
-        }
-        switch status.reachability {
-        case .reachable:
-            if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                return "Degraded"
-            }
-            return "Healthy"
-        case .unreachable:
-            return "Offline"
-        case .checking:
-            // Show previous status if we have data
-            if status.kubernetesVersion != nil {
-                if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                    return "Degraded"
-                }
-                return "Healthy"
-            }
-            return "Checking"
-        case .unknown:
-            return "Unknown"
-        }
+    private func statusLabelFor(_ cluster: Cluster) -> String {
+        appState.clusterStatuses[cluster.contextName]?.statusLabel ?? "Unknown"
     }
 
     private var noClusterSection: some View {
@@ -226,63 +204,13 @@ struct MenuBarView: View {
         )
     }
 
-    // MARK: - Status Dot
+    // MARK: - Status Helpers
 
-    @ViewBuilder
-    private func statusDot(for cluster: Cluster) -> some View {
-        let color = statusColor(for: cluster)
-
-        Circle()
-            .fill(color)
-            .frame(width: 12, height: 12)
-            .overlay(
-                Circle()
-                    .stroke(color.opacity(0.5), lineWidth: 2)
-                    .frame(width: 18, height: 18)
-            )
-    }
-
-    private func statusColor(for cluster: Cluster) -> Color {
+    private func statusColorFor(_ cluster: Cluster) -> Color {
         guard let status = appState.clusterStatuses[cluster.contextName] else {
             return .gray
         }
-        switch status.reachability {
-        case .reachable:
-            if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                return .yellow
-            }
-            return .green
-        case .unreachable:
-            return .red
-        case .checking:
-            // Show previous color if we have data
-            if status.kubernetesVersion != nil {
-                if let summary = status.fluxSummary, summary.totalFailing > 0 {
-                    return .yellow
-                }
-                return .green
-            }
-            return .gray
-        case .unknown:
-            return .gray
-        }
-    }
-
-    @ViewBuilder
-    private func statusIndicatorView(for cluster: Cluster) -> some View {
-        let status = appState.clusterStatuses[cluster.contextName]
-
-        Group {
-            if status?.reachability == .checking {
-                // Show spinner when checking
-                ProgressView()
-                    .scaleEffect(0.6)
-            } else {
-                // Show status dot
-                statusDot(for: cluster)
-            }
-        }
-        .frame(width: 18, height: 18)
+        return status.statusColor.toSwiftUIColor
     }
 
     // MARK: - Cluster List
@@ -449,77 +377,13 @@ struct MenuBarView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Helper Functions
+    // MARK: - Info Helpers
 
-    private func kubernetesVersionText(for cluster: Cluster) -> String {
-        guard let status = appState.clusterStatuses[cluster.contextName] else {
-            return "Kubernetes status unknown"
-        }
-
-        switch status.reachability {
-        case .checking:
-            // Show previous version if available
-            if let version = status.kubernetesVersion {
-                return "Kubernetes \(version)"
-            }
-            return "Checking Kubernetes..."
-        case .reachable:
-            if let version = status.kubernetesVersion {
-                return "Kubernetes \(version)"
-            }
-            return "Kubernetes connected"
-        case .unreachable:
-            return "Kubernetes unreachable"
-        case .unknown:
-            return "Kubernetes status unknown"
-        }
+    private func kubernetesInfoFor(_ cluster: Cluster) -> String {
+        appState.clusterStatuses[cluster.contextName]?.kubernetesInfo ?? "Kubernetes status unknown"
     }
 
-    private func fluxOperatorText(for cluster: Cluster) -> String {
-        guard let status = appState.clusterStatuses[cluster.contextName] else {
-            return "Flux Operator status unknown"
-        }
-
-        // If cluster is unreachable, Flux is also unreachable
-        if case .unreachable = status.reachability {
-            return "Flux Operator unreachable"
-        }
-
-        switch status.fluxOperator {
-        case .checking:
-            // Show previous info if available
-            if let summary = status.fluxSummary {
-                return formatFluxVersions(summary)
-            }
-            return "Checking Flux Operator..."
-        case .installed:
-            if let summary = status.fluxSummary {
-                return formatFluxVersions(summary)
-            }
-            return "Flux Operator installed"
-        case .degraded:
-            if let summary = status.fluxSummary {
-                return formatFluxVersions(summary)
-            }
-            return "Flux Operator degraded"
-        case .notInstalled:
-            return "Flux Operator not installed"
-        case .unknown:
-            return "Flux Operator status unknown"
-        }
-    }
-
-    private func formatFluxVersions(_ summary: FluxReportSummary) -> String {
-        let flux = summary.distributionVersion
-        let op = summary.operatorVersion
-
-        if flux != "unknown" && op != "unknown" {
-            return "Flux \(flux) Operator \(op)"
-        } else if op != "unknown" {
-            return "Flux Operator \(op)"
-        } else if flux != "unknown" {
-            return "Flux \(flux)"
-        }
-        return "Flux Operator installed"
+    private func fluxInfoFor(_ cluster: Cluster) -> String {
+        appState.clusterStatuses[cluster.contextName]?.fluxInfo ?? "Flux Operator status unknown"
     }
 }

@@ -130,4 +130,219 @@ import Testing
         status.fluxSummary = nil
         #expect(status.statusColor == .green)
     }
+
+    @Test func statusColorYellowForReachableWithFailingFlux() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxSummary = makeFluxSummary(failing: 2)
+        #expect(status.statusColor == .yellow)
+    }
+
+    @Test func statusColorGreenForCheckingWithPreviousData() {
+        var status = ClusterStatus()
+        status.reachability = .checking
+        status.kubernetesVersion = "v1.30.0"
+        status.fluxSummary = makeFluxSummary(failing: 0)
+        #expect(status.statusColor == .green)
+    }
+
+    @Test func statusColorYellowForCheckingWithPreviousFailingFlux() {
+        var status = ClusterStatus()
+        status.reachability = .checking
+        status.kubernetesVersion = "v1.30.0"
+        status.fluxSummary = makeFluxSummary(failing: 1)
+        #expect(status.statusColor == .yellow)
+    }
+
+    // MARK: - Status Label
+
+    @Test func statusLabelHealthyForReachable() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        #expect(status.statusLabel == "Healthy")
+    }
+
+    @Test func statusLabelDegradedForReachableWithFailingFlux() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxSummary = makeFluxSummary(failing: 3)
+        #expect(status.statusLabel == "Degraded")
+    }
+
+    @Test func statusLabelOfflineForUnreachable() {
+        var status = ClusterStatus()
+        status.reachability = .unreachable("connection refused")
+        #expect(status.statusLabel == "Offline")
+    }
+
+    @Test func statusLabelCheckingForCheckingWithNoData() {
+        var status = ClusterStatus()
+        status.reachability = .checking
+        #expect(status.statusLabel == "Checking")
+    }
+
+    @Test func statusLabelHealthyForCheckingWithPreviousData() {
+        var status = ClusterStatus()
+        status.reachability = .checking
+        status.kubernetesVersion = "v1.30.0"
+        #expect(status.statusLabel == "Healthy")
+    }
+
+    @Test func statusLabelDegradedForCheckingWithPreviousFailingFlux() {
+        var status = ClusterStatus()
+        status.reachability = .checking
+        status.kubernetesVersion = "v1.30.0"
+        status.fluxSummary = makeFluxSummary(failing: 2)
+        #expect(status.statusLabel == "Degraded")
+    }
+
+    @Test func statusLabelUnknownForUnknown() {
+        var status = ClusterStatus()
+        status.reachability = .unknown
+        #expect(status.statusLabel == "Unknown")
+    }
+
+    // MARK: - Kubernetes Info
+
+    @Test func kubernetesInfoShowsVersionForReachable() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.kubernetesVersion = "v1.30.1"
+        #expect(status.kubernetesInfo == "Kubernetes v1.30.1")
+    }
+
+    @Test func kubernetesInfoShowsConnectedWhenNoVersion() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.kubernetesVersion = nil
+        #expect(status.kubernetesInfo == "Kubernetes connected")
+    }
+
+    @Test func kubernetesInfoShowsUnreachable() {
+        var status = ClusterStatus()
+        status.reachability = .unreachable("timeout")
+        #expect(status.kubernetesInfo == "Kubernetes unreachable")
+    }
+
+    @Test func kubernetesInfoShowsCheckingWithNoData() {
+        var status = ClusterStatus()
+        status.reachability = .checking
+        #expect(status.kubernetesInfo == "Checking Kubernetes...")
+    }
+
+    @Test func kubernetesInfoShowsVersionWhileChecking() {
+        var status = ClusterStatus()
+        status.reachability = .checking
+        status.kubernetesVersion = "v1.29.0"
+        #expect(status.kubernetesInfo == "Kubernetes v1.29.0")
+    }
+
+    @Test func kubernetesInfoShowsUnknown() {
+        var status = ClusterStatus()
+        status.reachability = .unknown
+        #expect(status.kubernetesInfo == "Kubernetes status unknown")
+    }
+
+    // MARK: - Flux Info
+
+    @Test func fluxInfoShowsUnreachableWhenClusterUnreachable() {
+        var status = ClusterStatus()
+        status.reachability = .unreachable("timeout")
+        status.fluxOperator = .installed(version: "v0.14.0", healthy: true)
+        #expect(status.fluxInfo == "Flux Operator unreachable")
+    }
+
+    @Test func fluxInfoShowsNotInstalled() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .notInstalled
+        #expect(status.fluxInfo == "Flux Operator not installed")
+    }
+
+    @Test func fluxInfoShowsCheckingWithNoData() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .checking
+        #expect(status.fluxInfo == "Checking Flux Operator...")
+    }
+
+    @Test func fluxInfoShowsInstalledWhenNoSummary() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .installed(version: "v0.14.0", healthy: true)
+        status.fluxSummary = nil
+        #expect(status.fluxInfo == "Flux Operator installed")
+    }
+
+    @Test func fluxInfoShowsBothVersions() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .installed(version: "v0.14.0", healthy: true)
+        status.fluxSummary = makeFluxSummary(distributionVersion: "v2.4.0", operatorVersion: "v0.14.0")
+        #expect(status.fluxInfo == "Flux v2.4.0 · Operator v0.14.0")
+    }
+
+    @Test func fluxInfoShowsOnlyOperatorVersion() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .installed(version: "v0.14.0", healthy: true)
+        status.fluxSummary = makeFluxSummary(distributionVersion: "unknown", operatorVersion: "v0.14.0")
+        #expect(status.fluxInfo == "Flux Operator v0.14.0")
+    }
+
+    @Test func fluxInfoShowsOnlyDistributionVersion() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .installed(version: "v0.14.0", healthy: true)
+        status.fluxSummary = makeFluxSummary(distributionVersion: "v2.4.0", operatorVersion: "unknown")
+        #expect(status.fluxInfo == "Flux v2.4.0")
+    }
+
+    @Test func fluxInfoShowsInstalledWhenBothVersionsUnknown() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .installed(version: "v0.14.0", healthy: true)
+        status.fluxSummary = makeFluxSummary(distributionVersion: "unknown", operatorVersion: "unknown")
+        #expect(status.fluxInfo == "Flux Operator installed")
+    }
+
+    @Test func fluxInfoShowsVersionsWhileChecking() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .checking
+        status.fluxSummary = makeFluxSummary(distributionVersion: "v2.4.0", operatorVersion: "v0.14.0")
+        #expect(status.fluxInfo == "Flux v2.4.0 · Operator v0.14.0")
+    }
+
+    @Test func fluxInfoShowsUnknown() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .unknown
+        #expect(status.fluxInfo == "Flux Operator status unknown")
+    }
+
+    // MARK: - Test Helpers
+
+    private func makeFluxSummary(
+        distributionVersion: String = "v2.4.0",
+        operatorVersion: String = "v0.14.0",
+        failing: Int = 0
+    ) -> FluxReportSummary {
+        // Create a minimal FluxReportSpec to generate a summary
+        let spec = FluxReportSpec(
+            cluster: nil,
+            distribution: FluxDistribution(version: distributionVersion, status: "Installed", entitlement: nil, managedBy: nil),
+            components: [],
+            reconcilers: failing > 0 ? [
+                FluxReconciler(
+                    apiVersion: "kustomize.toolkit.fluxcd.io/v1",
+                    kind: "Kustomization",
+                    stats: FluxReconcilerStats(running: 5, failing: failing, suspended: 0, totalSize: nil)
+                )
+            ] : [],
+            sync: nil,
+            operator: FluxOperatorInfo(apiVersion: nil, version: operatorVersion, platform: nil)
+        )
+        return FluxReportSummary(from: spec)
+    }
 }

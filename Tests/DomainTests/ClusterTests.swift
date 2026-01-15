@@ -130,4 +130,109 @@ import Foundation
             #expect(color.count == 7) // #RRGGBB
         }
     }
+
+    // MARK: - Sorted By Favorites
+
+    @Test func sortedByFavoritesPutsFavoritesFirst() {
+        var favorite = Cluster(contextName: "zeta-favorite")
+        favorite.isFavorite = true
+
+        let regular = Cluster(contextName: "alpha-regular")
+
+        let clusters = [regular, favorite]
+        let sorted = clusters.sortedByFavorites()
+
+        #expect(sorted[0].contextName == "zeta-favorite")
+        #expect(sorted[1].contextName == "alpha-regular")
+    }
+
+    @Test func sortedByFavoritesPutsHiddenLast() {
+        var hidden = Cluster(contextName: "alpha-hidden")
+        hidden.isHidden = true
+
+        let regular = Cluster(contextName: "zeta-regular")
+
+        let clusters = [hidden, regular]
+        let sorted = clusters.sortedByFavorites()
+
+        #expect(sorted[0].contextName == "zeta-regular")
+        #expect(sorted[1].contextName == "alpha-hidden")
+    }
+
+    @Test func sortedByFavoritesOrdersFavoritesBeforeHidden() {
+        var favorite = Cluster(contextName: "favorite")
+        favorite.isFavorite = true
+
+        var hidden = Cluster(contextName: "hidden")
+        hidden.isHidden = true
+
+        let regular = Cluster(contextName: "regular")
+
+        let clusters = [hidden, regular, favorite]
+        let sorted = clusters.sortedByFavorites()
+
+        #expect(sorted[0].contextName == "favorite")
+        #expect(sorted[1].contextName == "regular")
+        #expect(sorted[2].contextName == "hidden")
+    }
+
+    @Test func sortedByFavoritesSortsAlphabeticallyWithinGroups() {
+        var favA = Cluster(contextName: "alpha")
+        favA.isFavorite = true
+        var favZ = Cluster(contextName: "zeta")
+        favZ.isFavorite = true
+
+        let regB = Cluster(contextName: "bravo")
+        let regC = Cluster(contextName: "charlie")
+
+        var hidX = Cluster(contextName: "x-ray")
+        hidX.isHidden = true
+        var hidY = Cluster(contextName: "yankee")
+        hidY.isHidden = true
+
+        let clusters = [favZ, regC, hidY, favA, hidX, regB]
+        let sorted = clusters.sortedByFavorites()
+
+        // Favorites alphabetically
+        #expect(sorted[0].contextName == "alpha")
+        #expect(sorted[1].contextName == "zeta")
+        // Regular alphabetically
+        #expect(sorted[2].contextName == "bravo")
+        #expect(sorted[3].contextName == "charlie")
+        // Hidden alphabetically
+        #expect(sorted[4].contextName == "x-ray")
+        #expect(sorted[5].contextName == "yankee")
+    }
+
+    @Test func sortedByFavoritesHandlesEmptyArray() {
+        let clusters: [Cluster] = []
+        let sorted = clusters.sortedByFavorites()
+        #expect(sorted.isEmpty)
+    }
+
+    @Test func sortedByFavoritesSortsCaseInsensitively() {
+        let upper = Cluster(contextName: "ALPHA")
+        let lower = Cluster(contextName: "beta")
+
+        let clusters = [lower, upper]
+        let sorted = clusters.sortedByFavorites()
+
+        #expect(sorted[0].contextName == "ALPHA")
+        #expect(sorted[1].contextName == "beta")
+    }
+
+    @Test func sortedByFavoritesUsesEffectiveName() {
+        var clusterA = Cluster(contextName: "zeta-context")
+        clusterA.displayName = "Alpha Display"
+
+        var clusterB = Cluster(contextName: "alpha-context")
+        clusterB.displayName = "Zeta Display"
+
+        let clusters = [clusterB, clusterA]
+        let sorted = clusters.sortedByFavorites()
+
+        // Should sort by effectiveName (displayName), not contextName
+        #expect(sorted[0].displayName == "Alpha Display")
+        #expect(sorted[1].displayName == "Zeta Display")
+    }
 }

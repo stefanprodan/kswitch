@@ -44,3 +44,22 @@ public struct Cluster: Identifiable, Codable, Hashable, Sendable {
         "#F97316", // Orange
     ]
 }
+
+extension [Cluster] {
+    /// Sorts clusters: favorites first, then non-favorites, then hidden. Each group sorted alphabetically.
+    public func sortedByFavorites() -> [Cluster] {
+        let favorites = self
+            .filter { $0.isFavorite && !$0.isHidden }
+            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
+
+        let nonFavorites = self
+            .filter { !$0.isFavorite && !$0.isHidden }
+            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
+
+        let hidden = self
+            .filter { $0.isHidden }
+            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
+
+        return favorites + nonFavorites + hidden
+    }
+}
