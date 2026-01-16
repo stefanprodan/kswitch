@@ -39,6 +39,8 @@ public actor NotificationAlerter {
     public func notifyClusterUnreachable(clusterName: String) async {
         guard isAuthorized else { return }
 
+        AppLog.debug("Sending notification: cluster '\(clusterName)' unreachable", category: .notifications)
+
         let content = UNMutableNotificationContent()
         content.title = "Cluster Unreachable"
         content.body = "\(clusterName) is not responding"
@@ -56,6 +58,8 @@ public actor NotificationAlerter {
     public func notifyClusterReachable(clusterName: String) async {
         guard isAuthorized else { return }
 
+        AppLog.debug("Sending notification: cluster '\(clusterName)' recovered", category: .notifications)
+
         let content = UNMutableNotificationContent()
         content.title = "Cluster Recovered"
         content.body = "\(clusterName) is now reachable"
@@ -72,6 +76,8 @@ public actor NotificationAlerter {
 
     public func notifyFluxFailures(clusterName: String, failingCount: Int) async {
         guard isAuthorized else { return }
+
+        AppLog.debug("Sending notification: cluster '\(clusterName)' has \(failingCount) Flux failure(s)", category: .notifications)
 
         let content = UNMutableNotificationContent()
         content.title = "Flux Reconciliation Failures"

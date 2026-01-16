@@ -66,7 +66,7 @@ In the Settings view, you can customize:
 - Auto-start on login and auto-update options
 
 The settings are persisted at
-`~/Library/Application Support/KSwitch/config.json`.
+`~/Library/Application Support/KSwitch/settings.json`.
 
 ### Cluster Management
 
