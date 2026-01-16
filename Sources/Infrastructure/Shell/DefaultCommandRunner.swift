@@ -4,6 +4,12 @@
 import Foundation
 import Domain
 
+/// Thread-safe flag to track if a timeout occurred.
+private actor DidTimeout {
+    private(set) var value = false
+    func set() { value = true }
+}
+
 /// Default implementation of CommandRunner using Foundation's Process.
 public struct DefaultCommandRunner: CommandRunner {
     public init() {}
@@ -24,10 +30,14 @@ public struct DefaultCommandRunner: CommandRunner {
         process.standardOutput = stdout
         process.standardError = stderr
 
+        // Track whether timeout fired before process completed
+        let didTimeout = DidTimeout()
+
         return try await withCheckedThrowingContinuation { continuation in
             let timeoutTask = Task {
                 try await Task.sleep(for: .seconds(timeout))
                 if process.isRunning {
+                    await didTimeout.set()
                     process.terminate()
                 }
             }
@@ -45,10 +55,12 @@ public struct DefaultCommandRunner: CommandRunner {
 
                     // Combine stdout and stderr for error cases
                     let finalOutput = process.terminationStatus == 0 ? output : errorOutput
+                    let timedOut = await didTimeout.value
 
                     continuation.resume(returning: CommandResult(
                         output: finalOutput,
-                        exitCode: process.terminationStatus
+                        exitCode: process.terminationStatus,
+                        timedOut: timedOut
                     ))
                 } catch {
                     timeoutTask.cancel()

@@ -26,9 +26,11 @@ public protocol CommandRunner: Sendable {
 public struct CommandResult: Sendable, Equatable {
     public let output: String
     public let exitCode: Int32
+    public let timedOut: Bool
 
-    public init(output: String, exitCode: Int32) {
+    public init(output: String, exitCode: Int32, timedOut: Bool = false) {
         self.output = output
         self.exitCode = exitCode
+        self.timedOut = timedOut
     }
 }

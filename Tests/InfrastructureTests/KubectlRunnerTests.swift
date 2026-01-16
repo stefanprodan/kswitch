@@ -269,6 +269,19 @@ import Mockable
         }
     }
 
+    @Test func timeoutErrorThrownWhenCommandTimesOut() async throws {
+        let mock = MockCommandRunner()
+        given(mock)
+            .run(.any, args: .any, environment: .any, timeout: .any)
+            .willReturn(CommandResult(output: "", exitCode: -15, timedOut: true))
+
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+
+        await #expect(throws: KSwitchError.timeout(10)) {
+            _ = try await kubectl.getContexts()
+        }
+    }
+
     // MARK: - Context Parameter Tests
 
     @Test func contextParameterPassedToCommand() async throws {

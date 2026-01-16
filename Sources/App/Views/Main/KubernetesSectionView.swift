@@ -100,7 +100,7 @@ struct KubernetesSectionView: View {
             if case .unreachable(let error) = status.reachability {
                 errorPanel(title: "Connection Error", message: error)
             } else if let nodeError = status.nodeError {
-                errorPanel(title: "Node Error", message: nodeError)
+                errorPanel(title: "Nodes Fetch Error", message: nodeError)
             }
         }
     }

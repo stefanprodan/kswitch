@@ -3,12 +3,12 @@
 
 import Foundation
 
-public enum KSwitchError: LocalizedError, Sendable {
+public enum KSwitchError: LocalizedError, Sendable, Equatable {
     case kubectlNotFound
     case kubectlFailed(String)
     case fluxReportNotFound
     case clusterUnreachable
-    case timeout
+    case timeout(TimeInterval)
     case invalidResponse(String)
 
     public var errorDescription: String? {
@@ -21,8 +21,8 @@ public enum KSwitchError: LocalizedError, Sendable {
             return "FluxReport not found in cluster"
         case .clusterUnreachable:
             return "Cluster is not reachable"
-        case .timeout:
-            return "Command timed out"
+        case .timeout(let seconds):
+            return "Command timed out after \(Int(seconds))s"
         case .invalidResponse(let msg):
             return "Invalid response: \(msg)"
         }

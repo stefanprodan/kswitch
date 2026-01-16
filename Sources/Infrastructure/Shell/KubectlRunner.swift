@@ -67,6 +67,11 @@ public actor KubectlRunner {
             timeout: Self.commandTimeout
         )
 
+        if result.timedOut {
+            AppLog.error("kubectl timed out after \(Self.commandTimeout)s", category: .kubectl)
+            throw KSwitchError.timeout(Self.commandTimeout)
+        }
+
         guard result.exitCode == 0 else {
             if logErrors {
                 AppLog.error("kubectl failed: \(result.output)", category: .kubectl)

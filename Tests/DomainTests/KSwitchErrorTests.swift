@@ -33,9 +33,10 @@ import Testing
     }
 
     @Test func timeoutHasDescription() {
-        let error = KSwitchError.timeout
+        let error = KSwitchError.timeout(10)
         #expect(error.errorDescription != nil)
         #expect(error.errorDescription!.contains("timed out"))
+        #expect(error.errorDescription!.contains("10s"))
     }
 
     @Test func invalidResponseIncludesMessage() {
@@ -52,7 +53,7 @@ import Testing
             .kubectlFailed("test"),
             .fluxReportNotFound,
             .clusterUnreachable,
-            .timeout,
+            .timeout(30),
             .invalidResponse("test")
         ]
 
