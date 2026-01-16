@@ -1,7 +1,16 @@
 # KSwitch
 
+[![release](https://img.shields.io/github/release/stefanprodan/kswitch/all.svg)](https://github.com/stefanprodan/kswitch/releases)
+[![test](https://github.com/stefanprodan/kswitch/actions/workflows/test.yaml/badge.svg)](https://github.com/stefanprodan/kswitch/actions/workflows/test.yaml)
+[![platform](https://img.shields.io/badge/Platform-macOS%2015-blue.svg)](https://developer.apple.com)
+[![license](https://img.shields.io/github/license/stefanprodan/kswitch.svg)](https://github.com/stefanprodan/kswitch/blob/main/LICENSE)
+
 KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 [Flux Operator](https://fluxoperator.dev) GitOps clusters directly from the menu bar.
+
+<p align="center">
+  <img src="docs/screenshots/kswitch.png" alt="KSwitch Dark Mode" width="100%"/>
+</p>
 
 ## Features
 
