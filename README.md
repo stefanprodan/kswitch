@@ -29,13 +29,9 @@ KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 
 ### Download (Recommended)
 
-Download the KSwitch zip file from [GitHub releases](https://github.com/controlplaneio-fluxcd/kswitch/releases),
+Download the KSwitch zip file from [GitHub releases](https://github.com/stefanprodan/kswitch/releases),
 unzip it, and move `KSwitch.app` to your Applications folder.
 The app is code-signed and notarized for Gatekeeper.
-
-Launch KSwitch from Applications and allow it to access your kubeconfig file when prompted.
-By default, KSwitch uses `~/.kube/config` and auto-detects `kubectl` from your shell `PATH`.
-You can specify multiple kubeconfig files and change the path to `kubectl` in the app settings.
 
 While the app is running, it will check for new versions automatically and update itself if allowed.
 
@@ -50,7 +46,67 @@ make dev
 ```
 
 Building the app requires the macOS SDK and Swift 6.2+ toolchain
-wich comes with Xcode 26.2 or later.
+which comes with Xcode 26.2 or later.
+
+## Usage
+
+Launch KSwitch from Applications and allow it to access your kubeconfig file when prompted.
+The app will appear in the menu bar from where you can switch Kubernetes contexts and
+open the main dashboard.
+
+### Configuration
+
+By default, KSwitch uses `~/.kube/config` and auto-detects `kubectl` from your shell `PATH`.
+
+In the Settings view, you can customize:
+- Kubeconfig file path, including support for multiple files delimited by `:`
+- Kubectl binary path
+- Auto-refresh interval for clusters and Flux status
+- Notification preferences
+- Auto-start on login and auto-update options
+
+The settings are persisted at
+`~/Library/Application Support/KSwitch/config.json`.
+
+### Cluster Management
+
+KSwitch lists all available Kubernetes contexts from your kubeconfig file. It watches for
+changes to the kubeconfig file and updates the context list automatically.
+
+In the Cluster list view, you can:
+- Mark clusters as favorites for quick access
+- Hide unused clusters from the menu bar selector
+- Search clusters by name
+- Navigate to the cluster details view
+
+In the Cluster details view, you can:
+- View Kubernetes version, health, and cluster capacity (CPU, memory, pods)
+- View the list of nodes and their status
+- View Flux Operator version and sync status
+- View the list of Flux components and reconcilers including their status
+
+In the Cluster edit view, you can:
+- Change the display name
+- Set a custom color for the cluster icon
+- Mark the cluster as favorite or hidden
+
+The clusters which have been deleted from the kubeconfig file are kept in the list
+but marked as removed. You can delete them permanently from the details view.
+
+The cluster customizations are persisted at
+`~/Library/Application Support/KSwitch/clusters.json`.
+
+### Notifications
+
+KSwitch can send macOS notifications to alert you of cluster state changes.
+Enable notifications in Settings and allow KSwitch to send alerts when prompted.
+
+You will be notified when:
+- A cluster goes offline or comes back online
+- Flux reconciliation failures increase
+
+Notifications appear in the macOS Notification Center and can be managed in
+System Settings > Notifications > KSwitch.
 
 ## License
 
