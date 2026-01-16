@@ -290,16 +290,17 @@ final class AppState {
         }
 
         // Send notification if Flux failures increased
+        // Only notify when we have a valid previous state to compare against
+        // (avoids false notifications on app launch or cluster recovery from offline)
         if settings.notificationsEnabled,
            let summary = status.fluxSummary,
-           summary.totalFailing > 0 {
-            let previousFailing = previousStatus?.fluxSummary?.totalFailing ?? 0
-            if summary.totalFailing > previousFailing {
-                await NotificationAlerter.shared.notifyFluxFailures(
-                    clusterName: clusterName,
-                    failingCount: summary.totalFailing
-                )
-            }
+           summary.totalFailing > 0,
+           let previousFailing = previousStatus?.fluxSummary?.totalFailing,
+           summary.totalFailing > previousFailing {
+            await NotificationAlerter.shared.notifyFluxFailures(
+                clusterName: clusterName,
+                failingCount: summary.totalFailing
+            )
         }
 
         status.lastChecked = Date()
