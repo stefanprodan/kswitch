@@ -108,6 +108,17 @@ You will be notified when:
 Notifications appear in the macOS Notification Center and can be managed in
 System Settings > Notifications > KSwitch.
 
+### Logs
+
+KSwitch logs events using Apple's unified logging system. To stream logs in real-time,
+open Terminal and run:
+
+```bash
+log stream --predicate 'subsystem == "com.stefanprodan.kswitch"' --level debug
+```
+
+Logs can also be viewed in Console.app by filtering for the `com.stefanprodan.kswitch` subsystem.
+
 ## License
 
 KSwitch is an open-source project licensed under the
