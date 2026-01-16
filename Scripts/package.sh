@@ -2,13 +2,13 @@
 
 # Build and package the app into a .app bundle.
 #
-# Usage: package.sh (env vars: APP_NAME, BUNDLE_ID, MACOS_MIN_VERSION, MARKETING_VERSION, BUILD_NUMBER)
+# Usage: package.sh (env vars: APP_NAME, BUNDLE_ID, MACOS_MIN_VERSION, APP_VERSION, BUILD_NUMBER)
 #
 # Required environment variables:
 #   APP_NAME           Application name
 #   BUNDLE_ID          Bundle identifier
 #   MACOS_MIN_VERSION  Minimum macOS version
-#   MARKETING_VERSION  Version string (e.g., 1.0.0)
+#   APP_VERSION        Version string (e.g., 1.0.0)
 #   BUILD_NUMBER       Build number
 #
 # Optional environment variables:
@@ -23,7 +23,7 @@ cd "$ROOT"
 : "${APP_NAME:?APP_NAME is required}"
 : "${BUNDLE_ID:?BUNDLE_ID is required}"
 : "${MACOS_MIN_VERSION:?MACOS_MIN_VERSION is required}"
-: "${MARKETING_VERSION:?MARKETING_VERSION is required}"
+: "${APP_VERSION:?APP_VERSION is required}"
 : "${BUILD_NUMBER:?BUILD_NUMBER is required}"
 SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
 SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}"
@@ -57,7 +57,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
     <key>CFBundleExecutable</key><string>${APP_NAME}</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>${MARKETING_VERSION}</string>
+    <key>CFBundleShortVersionString</key><string>${APP_VERSION}</string>
     <key>CFBundleVersion</key><string>${BUILD_NUMBER}</string>
     <key>LSMinimumSystemVersion</key><string>${MACOS_MIN_VERSION}</string>
     <key>LSUIElement</key><true/>

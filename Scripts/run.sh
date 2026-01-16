@@ -2,19 +2,20 @@
 
 # Build, package, and launch the app for local development.
 #
-# Usage: run.sh (env vars: APP_NAME, BUNDLE_ID, MACOS_MIN_VERSION, MARKETING_VERSION, BUILD_NUMBER)
+# Usage: run.sh (env vars: APP_NAME, BUNDLE_ID, MACOS_MIN_VERSION, APP_VERSION, BUILD_NUMBER)
 #
 # Required environment variables:
 #   APP_NAME           Application name
 #   BUNDLE_ID          Bundle identifier
 #   MACOS_MIN_VERSION  Minimum macOS version
-#   MARKETING_VERSION  Version string (e.g., 1.0.0)
+#   APP_VERSION        Version string (e.g., 1.0.0)
 #   BUILD_NUMBER       Build number
 #
 # Optional environment variables:
-#   BUILD_CONFIG       Build configuration: debug or release (default: release)
-#   SPARKLE_FEED_URL   Sparkle appcast URL
-#   SPARKLE_PUBLIC_KEY Sparkle EdDSA public key
+#   BUILD_CONFIG           Build configuration: debug or release (default: release)
+#   APPLE_SIGNING_IDENTITY Developer ID for signing (if set, uses sign.sh)
+#   SPARKLE_FEED_URL       Sparkle appcast URL
+#   SPARKLE_PUBLIC_KEY     Sparkle EdDSA public key
 
 set -euo pipefail
 
@@ -24,7 +25,7 @@ cd "$ROOT"
 : "${APP_NAME:?APP_NAME is required}"
 : "${BUNDLE_ID:?BUNDLE_ID is required}"
 : "${MACOS_MIN_VERSION:?MACOS_MIN_VERSION is required}"
-: "${MARKETING_VERSION:?MARKETING_VERSION is required}"
+: "${APP_VERSION:?APP_VERSION is required}"
 : "${BUILD_NUMBER:?BUILD_NUMBER is required}"
 SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
 SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}"
@@ -67,7 +68,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
     <key>CFBundleExecutable</key><string>${APP_NAME}</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>${MARKETING_VERSION}</string>
+    <key>CFBundleShortVersionString</key><string>${APP_VERSION}</string>
     <key>CFBundleVersion</key><string>${BUILD_NUMBER}</string>
     <key>LSMinimumSystemVersion</key><string>${MACOS_MIN_VERSION}</string>
     <key>LSUIElement</key><true/>
@@ -115,17 +116,22 @@ chmod -R u+w "$APP"
 xattr -cr "$APP"
 find "$APP" -name '._*' -delete
 
-# Ad-hoc signing (for local development)
+# Signing
 log "==> Signing"
-ENTITLEMENTS="$ROOT/Sources/App/entitlements.plist"
-for fw in "$APP/Contents/Frameworks/"*.framework; do
-  [[ -d "$fw" ]] || continue
-  while IFS= read -r -d '' bin; do
-    codesign --force --sign "-" "$bin"
-  done < <(find "$fw" -type f -perm -111 -print0)
-  codesign --force --sign "-" "$fw"
-done
-codesign --force --sign "-" --entitlements "$ENTITLEMENTS" "$APP"
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+  "$ROOT/Scripts/sign.sh"
+else
+  # Ad-hoc signing (for local development)
+  ENTITLEMENTS="$ROOT/Sources/App/entitlements.plist"
+  for fw in "$APP/Contents/Frameworks/"*.framework; do
+    [[ -d "$fw" ]] || continue
+    while IFS= read -r -d '' bin; do
+      codesign --force --sign "-" "$bin"
+    done < <(find "$fw" -type f -perm -111 -print0)
+    codesign --force --sign "-" "$fw"
+  done
+  codesign --force --sign "-" --entitlements "$ENTITLEMENTS" "$APP"
+fi
 
 log "==> Launching"
 if ! open "$APP"; then

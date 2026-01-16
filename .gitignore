@@ -68,5 +68,8 @@ fastlane/test_output
 tmp/
 Icon.iconset/
 
+# Distribution files
+dist/
+
 # AI files
 plans/

@@ -6,6 +6,7 @@
 #
 # Required environment variables:
 #   APP_NAME                        Application name (used to derive .app bundle path)
+#   APP_VERSION                     Application version (e.g., 1.0.0)
 #   APP_STORE_CONNECT_API_KEY_PATH  Path to App Store Connect API key (.p8 file)
 #   APP_STORE_CONNECT_KEY_ID        App Store Connect Key ID
 #   APP_STORE_CONNECT_ISSUER_ID     App Store Connect Issuer ID
@@ -19,6 +20,7 @@ log() { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 : "${APP_NAME:?APP_NAME is required}"
+: "${APP_VERSION:?APP_VERSION is required}"
 : "${APP_STORE_CONNECT_API_KEY_PATH:?APP_STORE_CONNECT_API_KEY_PATH is required}"
 : "${APP_STORE_CONNECT_KEY_ID:?APP_STORE_CONNECT_KEY_ID is required}"
 : "${APP_STORE_CONNECT_ISSUER_ID:?APP_STORE_CONNECT_ISSUER_ID is required}"
@@ -102,5 +104,18 @@ else
     fail "Stapler validation failed"
 fi
 
+# Create distribution ZIP
+log "--- Creating distribution archive ---"
+DIST_DIR="$ROOT/dist"
+mkdir -p "$DIST_DIR"
+DIST_ZIP="$DIST_DIR/${APP_NAME}-${APP_VERSION}.zip"
+ditto -c -k --keepParent "$APP_BUNDLE" "$DIST_ZIP"
+
+# Create SHA256 checksum
+DIST_SHA="$DIST_DIR/${APP_NAME}-${APP_VERSION}.zip.sha256"
+shasum -a 256 "$DIST_ZIP" | awk '{print $1}' > "$DIST_SHA"
+
 log ""
-log "Your app is ready for distribution."
+log "App is ready for distribution:"
+log "  $DIST_ZIP"
+log "  $DIST_SHA"
