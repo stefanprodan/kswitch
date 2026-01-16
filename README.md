@@ -9,7 +9,7 @@ KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 [Flux Operator](https://fluxoperator.dev) GitOps clusters directly from the menu bar.
 
 <p align="center">
-  <img src="docs/screenshots/kswitch.png" alt="KSwitch Dark Mode" width="100%"/>
+  <img src="docs/screenshots/kswitch-banner.png" alt="KSwitch Dark Mode" width="100%"/>
 </p>
 
 ## Features
