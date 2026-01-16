@@ -26,6 +26,7 @@ public struct ClusterStatus: Sendable {
         case unknown
         case checking
         case notInstalled
+        case operatorOnly(version: String)
         case installed(version: String, healthy: Bool)
         case degraded(version: String, failing: Int)
     }
@@ -37,6 +38,7 @@ public struct ClusterStatus: Sendable {
     public var fluxOperator: FluxOperatorState = .unknown
     public var fluxReport: FluxReportSpec?
     public var fluxSummary: FluxReportSummary?
+    public var fluxError: String?
     public var lastChecked: Date?
 
     public init() {}
@@ -68,12 +70,12 @@ public struct ClusterStatus: Sendable {
         notReadyCount > 0
     }
 
-    /// Returns true if cluster is degraded (Flux failures, not-ready nodes, or node fetch error)
+    /// Returns true if cluster is degraded (Flux failures, not-ready nodes, or fetch errors)
     public var isDegraded: Bool {
         if let summary = fluxSummary, summary.totalFailing > 0 {
             return true
         }
-        if nodeError != nil {
+        if nodeError != nil || fluxError != nil {
             return true
         }
         return hasNotReadyNodes
@@ -149,6 +151,8 @@ public struct ClusterStatus: Sendable {
                 return formatFluxVersions(summary)
             }
             return "Flux Operator installed"
+        case .operatorOnly(let version):
+            return "Flux N/A · Operator \(version)"
         case .notInstalled:
             return "Flux Operator not installed"
         case .unknown:

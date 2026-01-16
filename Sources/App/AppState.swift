@@ -255,10 +255,11 @@ final class AppState {
         do {
             let report = try await fluxReport
             status.fluxReport = report
+            status.fluxError = nil
             let summary = FluxReportSummary(from: report)
             status.fluxSummary = summary
 
-            if summary.isInstalled {
+            if summary.isDistributionInstalled {
                 if summary.isHealthy {
                     status.fluxOperator = .installed(
                         version: summary.distributionVersion,
@@ -272,12 +273,20 @@ final class AppState {
                     )
                 }
             } else {
-                status.fluxOperator = .notInstalled
+                // Operator is installed (we have FluxReport) but distribution is not
+                status.fluxOperator = .operatorOnly(version: summary.operatorVersion)
             }
         } catch KSwitchError.fluxReportNotFound {
             status.fluxOperator = .notInstalled
+            status.fluxError = nil
         } catch {
-            status.fluxOperator = .notInstalled
+            status.fluxOperator = .unknown
+            if let kswitchError = error as? KSwitchError {
+                status.fluxError = kswitchError.errorDescription ?? error.localizedDescription
+            } else {
+                status.fluxError = error.localizedDescription
+            }
+            AppLog.warning("Failed to get FluxReport for \(contextName): \(status.fluxError ?? "unknown")")
         }
 
         // Send notification if Flux failures increased

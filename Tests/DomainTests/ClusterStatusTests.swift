@@ -94,6 +94,18 @@ import Testing
         #expect(a != b)
     }
 
+    @Test func fluxStateOperatorOnlyEqualsSameVersion() {
+        let a = ClusterStatus.FluxOperatorState.operatorOnly(version: "v0.38.1")
+        let b = ClusterStatus.FluxOperatorState.operatorOnly(version: "v0.38.1")
+        #expect(a == b)
+    }
+
+    @Test func fluxStateOperatorOnlyNotEqualsDifferentVersion() {
+        let a = ClusterStatus.FluxOperatorState.operatorOnly(version: "v0.38.1")
+        let b = ClusterStatus.FluxOperatorState.operatorOnly(version: "v0.39.0")
+        #expect(a != b)
+    }
+
     // MARK: - Default Values
 
     @Test func newClusterStatusHasDefaultValues() {
@@ -323,6 +335,29 @@ import Testing
         status.reachability = .reachable
         status.fluxOperator = .unknown
         #expect(status.fluxInfo == "Flux Operator status unknown")
+    }
+
+    @Test func fluxInfoShowsOperatorOnlyWithVersion() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxOperator = .operatorOnly(version: "v0.38.1")
+        #expect(status.fluxInfo == "Flux N/A · Operator v0.38.1")
+    }
+
+    // MARK: - Flux Error
+
+    @Test func fluxErrorIsNilByDefault() {
+        let status = ClusterStatus()
+        #expect(status.fluxError == nil)
+    }
+
+    @Test func isDegradedTrueForFluxError() {
+        var status = ClusterStatus()
+        status.reachability = .reachable
+        status.fluxError = "Command timed out after 10s"
+        #expect(status.isDegraded == true)
+        #expect(status.statusLabel == "Degraded")
+        #expect(status.statusColor == .yellow)
     }
 
     // MARK: - Node Properties

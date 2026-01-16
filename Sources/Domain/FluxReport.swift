@@ -98,7 +98,7 @@ public struct FluxOperatorInfo: Codable, Sendable {
 public struct FluxReportSummary: Sendable {
     public let distributionVersion: String
     public let operatorVersion: String
-    public let isInstalled: Bool
+    public let isDistributionInstalled: Bool
     public let syncReady: Bool
     public let syncPath: String?
     public let totalRunning: Int
@@ -110,7 +110,7 @@ public struct FluxReportSummary: Sendable {
     public init(from spec: FluxReportSpec) {
         self.distributionVersion = spec.distribution?.version ?? "unknown"
         self.operatorVersion = spec.operator?.version ?? "unknown"
-        self.isInstalled = spec.distribution?.status == "Installed"
+        self.isDistributionInstalled = spec.distribution?.status == "Installed"
         self.syncReady = spec.sync?.ready ?? false
         self.syncPath = spec.sync?.path
 

@@ -66,6 +66,34 @@ struct FluxSectionView: View {
     private var overviewContent: some View {
         // If we have summary data, always show it (even during refresh)
         if let summary = status.fluxSummary {
+            // Distribution not installed - show minimal info
+            if !summary.isDistributionInstalled {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Operator")
+                            .foregroundStyle(.secondary)
+                        Text(summary.operatorVersion)
+                            .textSelection(.enabled)
+                    }
+                    GridRow {
+                        Text("Distribution")
+                            .foregroundStyle(.secondary)
+                        Text("N/A")
+                            .textSelection(.enabled)
+                    }
+                }
+            } else {
+                distributionInstalledContent(summary: summary)
+            }
+        } else {
+            // No previous data - show status based on operator state
+            noSummaryContent
+        }
+    }
+
+    @ViewBuilder
+    private func distributionInstalledContent(summary: FluxReportSummary) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                 GridRow {
                     Text("Status")
@@ -84,16 +112,16 @@ struct FluxSectionView: View {
                 }
 
                 GridRow {
-                    Text("Distribution")
+                    Text("Operator")
                         .foregroundStyle(.secondary)
-                    Text(summary.distributionVersion)
+                    Text(summary.operatorVersion)
                         .textSelection(.enabled)
                 }
 
                 GridRow {
-                    Text("Operator")
+                    Text("Distribution")
                         .foregroundStyle(.secondary)
-                    Text(summary.operatorVersion)
+                    Text(summary.distributionVersion)
                         .textSelection(.enabled)
                 }
 
@@ -200,24 +228,31 @@ struct FluxSectionView: View {
                !message.isEmpty,
                !message.hasPrefix("Suspended") {
                 errorPanel(title: "Sync Error", message: message)
+                    .padding(.top, 12)
             }
-        } else {
-            // No previous data - show status based on operator state
-            switch status.fluxOperator {
-            case .notInstalled:
-                Text("Flux Operator not installed")
-                    .foregroundStyle(.secondary)
+        }
+    }
 
-            case .installed, .degraded:
-                // Shouldn't happen if we have no summary, but handle it
-                Text("Loading...")
-                    .foregroundStyle(.secondary)
+    @ViewBuilder
+    private var noSummaryContent: some View {
+        switch status.fluxOperator {
+        case .notInstalled:
+            Text("Flux Operator not installed")
+                .foregroundStyle(.secondary)
 
-            case .checking:
-                Text("Checking...")
-                    .foregroundStyle(.secondary)
+        case .operatorOnly, .installed, .degraded:
+            // Shouldn't happen - we always have summary when FluxReport exists
+            Text("Loading...")
+                .foregroundStyle(.secondary)
 
-            case .unknown:
+        case .checking:
+            Text("Checking...")
+                .foregroundStyle(.secondary)
+
+        case .unknown:
+            if let fluxError = status.fluxError {
+                errorPanel(title: "Flux Report Error", message: fluxError)
+            } else {
                 Text("Status unknown")
                     .foregroundStyle(.secondary)
             }
