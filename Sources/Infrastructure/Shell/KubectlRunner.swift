@@ -10,7 +10,7 @@ import Domain
 /// injects KUBECONFIG from settings, and parses JSON responses for cluster info,
 /// nodes, and Flux reports. Uses `CommandRunner` protocol for testability.
 public actor KubectlRunner {
-    private let settingsProvider: @Sendable () -> AppSettings
+    private var settings: AppSettings
     private let runner: CommandRunner
     private var resolvedPath: String?
 
@@ -18,14 +18,17 @@ public actor KubectlRunner {
 
     public init(
         runner: CommandRunner = DefaultCommandRunner(),
-        settings: @escaping @Sendable () -> AppSettings
+        settings: AppSettings = .default
     ) {
         self.runner = runner
-        self.settingsProvider = settings
+        self.settings = settings
+    }
+
+    public func updateSettings(_ newSettings: AppSettings) {
+        self.settings = newSettings
     }
 
     private func kubectlPath() async throws -> String {
-        let settings = settingsProvider()
         if let configured = settings.kubectlPath, !configured.isEmpty {
             return configured
         }
@@ -49,7 +52,6 @@ public actor KubectlRunner {
         context: String? = nil,
         logErrors: Bool = true
     ) async throws -> String {
-        let settings = settingsProvider()
         let path = try await kubectlPath()
         let env = await ShellEnvironment.shared.getEnvironment(
             kubeconfigPaths: settings.effectiveKubeconfigPaths
@@ -85,7 +87,7 @@ public actor KubectlRunner {
     // MARK: - Public API
 
     public func currentSettings() -> AppSettings {
-        settingsProvider()
+        settings
     }
 
     public func getContexts() async throws -> [String] {

@@ -11,12 +11,18 @@ struct MenuBarIcon: View {
     }
 
     private var menuBarImage: NSImage {
-        let resourceBundle = Bundle.main.resourceURL!
-            .appendingPathComponent("kswitch_kswitch.bundle")
-        let bundle = Bundle(url: resourceBundle)!
-        let imagePath = bundle.path(forResource: "MenuBarIcon@2x", ofType: "png",
-                                    inDirectory: "Assets.xcassets/MenuBarIcon.imageset")!
-        let image = NSImage(contentsOfFile: imagePath)!
+        guard let resourceBundleURL = Bundle.main.resourceURL?
+                .appendingPathComponent("kswitch_kswitch.bundle"),
+              let bundle = Bundle(url: resourceBundleURL),
+              let imagePath = bundle.path(forResource: "MenuBarIcon@2x", ofType: "png",
+                                          inDirectory: "Assets.xcassets/MenuBarIcon.imageset"),
+              let image = NSImage(contentsOfFile: imagePath) else {
+            AppLog.warning("MenuBarIcon not found in bundle, using SF Symbol fallback")
+            let fallback = NSImage(systemSymbolName: "cube.transparent",
+                                   accessibilityDescription: "KSwitch") ?? NSImage()
+            fallback.isTemplate = true
+            return fallback
+        }
         image.isTemplate = true
         return image
     }

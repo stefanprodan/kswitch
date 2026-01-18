@@ -4,6 +4,26 @@
 import Foundation
 import Domain
 
+/// Thread-safe data accumulator for shell output.
+private final class ShellDataAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func append(_ newData: Data) {
+        lock.lock()
+        data.append(newData)
+        lock.unlock()
+    }
+
+    func finalize(with remainingData: Data) -> Data {
+        lock.lock()
+        data.append(remainingData)
+        let result = data
+        lock.unlock()
+        return result
+    }
+}
+
 /// Provides access to shell environment and executable discovery.
 /// Gets PATH from the user's login shell to find tools like aws, gcloud, etc.
 public actor ShellEnvironment {
@@ -15,7 +35,7 @@ public actor ShellEnvironment {
 
     /// Returns minimal environment variables for kubectl subprocesses.
     /// Uses the user's login shell PATH to ensure exec credential plugins (aws, gcloud, etc.) are found.
-    public func getEnvironment(kubeconfigPaths: [String] = []) -> [String: String] {
+    public func getEnvironment(kubeconfigPaths: [String] = []) async -> [String: String] {
         let processEnv = ProcessInfo.processInfo.environment
         var env: [String: String] = [:]
 
@@ -25,14 +45,14 @@ public actor ShellEnvironment {
         if let home = processEnv["HOME"] {
             env["HOME"] = home
         }
-        env["PATH"] = getShellPath()
+        env["PATH"] = await getShellPath()
 
         return env
     }
 
     /// Gets the user's PATH from their login shell.
     /// This ensures we have access to tools installed via Homebrew, nix-darwin, asdf, etc.
-    private func getShellPath() -> String {
+    private func getShellPath() async -> String {
         if let cached = cachedShellPath {
             return cached
         }
@@ -50,38 +70,60 @@ public actor ShellEnvironment {
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+        let result = await runShellProcess(process, pipe: pipe, shell: shell, fallback: fallback)
+        cachedShellPath = result
+        return result
+    }
 
-            guard process.terminationStatus == 0 else {
-                AppLog.debug("Shell exited with status \(process.terminationStatus), using fallback PATH", category: .shell)
-                cachedShellPath = fallback
-                return fallback
+    private func runShellProcess(_ process: Process, pipe: Pipe, shell: Shell, fallback: String) async -> String {
+        await withCheckedContinuation { continuation in
+            let accumulator = ShellDataAccumulator()
+
+            pipe.fileHandleForReading.readabilityHandler = { handle in
+                accumulator.append(handle.availableData)
             }
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let output = String(data: data, encoding: .utf8) else {
-                AppLog.debug("Could not decode shell output, using fallback PATH", category: .shell)
-                cachedShellPath = fallback
-                return fallback
+            process.terminationHandler = { [weak self] terminatedProcess in
+                pipe.fileHandleForReading.readabilityHandler = nil
+
+                let data = accumulator.finalize(with: pipe.fileHandleForReading.readDataToEndOfFile())
+
+                guard terminatedProcess.terminationStatus == 0 else {
+                    AppLog.debug("Shell exited with status \(terminatedProcess.terminationStatus), using fallback PATH", category: .shell)
+                    Task { await self?.setCachedPath(fallback) }
+                    continuation.resume(returning: fallback)
+                    return
+                }
+
+                // Use lossy UTF-8 conversion
+                let output = String(decoding: data, as: UTF8.self)
+                let path = shell.parsePathOutput(output)
+
+                if path.isEmpty {
+                    AppLog.debug("Shell returned empty PATH, using fallback", category: .shell)
+                    Task { await self?.setCachedPath(fallback) }
+                    continuation.resume(returning: fallback)
+                    return
+                }
+
+                let shellName = process.executableURL?.lastPathComponent ?? "shell"
+                AppLog.debug("Got PATH from \(shellName): \(path.prefix(100))...", category: .shell)
+                Task { await self?.setCachedPath(path) }
+                continuation.resume(returning: path)
             }
 
-            let path = shell.parsePathOutput(output)
-            if path.isEmpty {
-                AppLog.debug("Shell returned empty PATH, using fallback", category: .shell)
-                cachedShellPath = fallback
-                return fallback
+            do {
+                try process.run()
+            } catch {
+                pipe.fileHandleForReading.readabilityHandler = nil
+                AppLog.debug("Failed to run shell: \(error), using fallback PATH", category: .shell)
+                continuation.resume(returning: fallback)
             }
-
-            AppLog.debug("Got PATH from login shell: \(path.prefix(100))...", category: .shell)
-            cachedShellPath = path
-            return path
-        } catch {
-            AppLog.debug("Failed to run shell: \(error), using fallback PATH", category: .shell)
-            cachedShellPath = fallback
-            return fallback
         }
+    }
+
+    private func setCachedPath(_ path: String) {
+        cachedShellPath = path
     }
 
     /// Finds an executable by name using `which` through the user's login shell.
@@ -99,27 +141,43 @@ public actor ShellEnvironment {
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+        return await withCheckedContinuation { continuation in
+            let accumulator = ShellDataAccumulator()
 
-            guard process.terminationStatus == 0 else {
-                AppLog.debug("Could not find \(name) in PATH", category: .shell)
-                return nil
+            pipe.fileHandleForReading.readabilityHandler = { handle in
+                accumulator.append(handle.availableData)
             }
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let output = String(data: data, encoding: .utf8),
-                  let path = shell.parseWhichOutput(output) else {
-                AppLog.debug("Could not find \(name) in PATH", category: .shell)
-                return nil
+            process.terminationHandler = { terminatedProcess in
+                pipe.fileHandleForReading.readabilityHandler = nil
+
+                let data = accumulator.finalize(with: pipe.fileHandleForReading.readDataToEndOfFile())
+
+                guard terminatedProcess.terminationStatus == 0 else {
+                    AppLog.debug("Could not find \(name) in PATH", category: .shell)
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                // Use lossy UTF-8 conversion
+                let output = String(decoding: data, as: UTF8.self)
+                guard let path = shell.parseWhichOutput(output) else {
+                    AppLog.debug("Could not find \(name) in PATH", category: .shell)
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                AppLog.debug("Found \(name) at: \(path)", category: .shell)
+                continuation.resume(returning: path)
             }
 
-            AppLog.debug("Found \(name) at: \(path)", category: .shell)
-            return path
-        } catch {
-            AppLog.debug("Failed to run which for \(name): \(error)", category: .shell)
-            return nil
+            do {
+                try process.run()
+            } catch {
+                pipe.fileHandleForReading.readabilityHandler = nil
+                AppLog.debug("Failed to run which for \(name): \(error)", category: .shell)
+                continuation.resume(returning: nil)
+            }
         }
     }
 }

@@ -491,29 +491,67 @@
       .footer-content { flex-direction: column; gap: 20px; text-align: center; }
       .footer-links { flex-wrap: wrap; justify-content: center; gap: 20px; }
     }
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 16px;
+      padding: 10px 14px;
+      background: #fff;
+      color: #000;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      z-index: 10;
+      transition: top 0.2s ease;
+    }
+    .skip-link:focus { top: 16px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @supports (min-height: 100svh) {
+      .hero { min-height: 100svh; }
+    }
+
+
+    .footer-links a,
+    .footer-copyright,
+    .footer-copyright a { color: var(--gray-400); }
+    .footer-links a:hover,
+    .footer-copyright a:hover { color: var(--gray-300); }
   </style>
 </head>
 <body>
+
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main id="main">
 
   <!-- Hero -->
   <section class="hero">
     <div class="hero-grid">
       <div>
         <div class="badge">
-          <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
           Made for macOS 15.0+
         </div>
         <h1>KSwitch</h1>
         <p class="hero-desc">A native macOS app for managing Kubernetes contexts and monitoring Flux Operator GitOps clusters directly from the menu bar.</p>
         <div class="buttons">
           <a href="https://github.com/stefanprodan/kswitch/releases/latest/download/KSwitch.dmg" class="btn btn-primary">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
             Download
           </a>
           <a href="https://github.com/stefanprodan/kswitch" class="btn btn-secondary">
-            <svg viewBox="0 0 24 24" fill="currentColor">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
             </svg>
             Source Code
@@ -521,7 +559,7 @@
         </div>
       </div>
       <div class="hero-visual">
-        <img src="screenshots/kswitch-menubar.png" alt="KSwitch Menu Bar" class="hero-img">
+        <img src="screenshots/kswitch-menubar.png" alt="KSwitch Menu Bar" class="hero-img" decoding="async">
       </div>
     </div>
   </section>
@@ -536,7 +574,7 @@
       <div class="feature-card">
         <div class="feature-header">
           <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>
             </svg>
           </div>
@@ -547,7 +585,7 @@
       <div class="feature-card">
         <div class="feature-header">
           <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
             </svg>
           </div>
@@ -558,16 +596,16 @@
       <div class="feature-card">
         <div class="feature-header">
           <div class="feature-icon">
-            <svg viewBox="0 0 512 512" fill="white"><path d="M392.294 423.731C317.276 484.792 209.992 488.438 131.41 432.64C49.0496 374.139 18.473 265.83 55.9411 174.152L107.377 200.745C83.9168 263.188 101.796 333.64 154.081 377.508C191.642 409.006 243.692 420.71 293.304 408.812L284.375 371.507C246.497 380.59 207.022 371.845 178.729 348.129C135.332 311.695 123.218 251.116 149.248 200.806L158.075 183.757L38.7277 122.081L29.9213 139.11C-28.0371 251.003 6.06208 390.646 109.189 463.923C170.271 507.279 246.036 520.192 315.894 503.306C351.949 494.592 386.437 477.962 416.512 453.489C425.4 446.239 433.633 438.2 441.498 429.844L405.996 411.494C401.582 415.754 397.046 419.871 392.294 423.731ZM402.964 48.087C311.46 -16.9984 185.969 -13.527 97.8227 56.5555C87.9002 64.4198 78.7763 73.1853 70.2054 82.3501L105.687 100.68C110.797 95.7542 116.101 91.0029 121.682 86.5587C196.557 27.0643 303.063 24.0742 380.733 79.3088C463.002 137.83 493.507 246.098 460.186 339.845L408.75 313.252C428.053 248.812 410.276 178.442 358.164 134.564C319.621 102.072 266.301 90.8083 215.398 103.895L224.563 141.138C263.291 130.877 304.435 139.438 333.476 163.912C376.74 200.346 388.772 260.844 362.783 311.081L353.956 328.131L473.324 389.806L482.109 372.777C539.996 260.936 505.989 121.375 402.975 48.0768"/></svg>
+            <svg viewBox="0 0 512 512" fill="white" aria-hidden="true" focusable="false"><path d="M392.294 423.731C317.276 484.792 209.992 488.438 131.41 432.64C49.0496 374.139 18.473 265.83 55.9411 174.152L107.377 200.745C83.9168 263.188 101.796 333.64 154.081 377.508C191.642 409.006 243.692 420.71 293.304 408.812L284.375 371.507C246.497 380.59 207.022 371.845 178.729 348.129C135.332 311.695 123.218 251.116 149.248 200.806L158.075 183.757L38.7277 122.081L29.9213 139.11C-28.0371 251.003 6.06208 390.646 109.189 463.923C170.271 507.279 246.036 520.192 315.894 503.306C351.949 494.592 386.437 477.962 416.512 453.489C425.4 446.239 433.633 438.2 441.498 429.844L405.996 411.494C401.582 415.754 397.046 419.871 392.294 423.731ZM402.964 48.087C311.46 -16.9984 185.969 -13.527 97.8227 56.5555C87.9002 64.4198 78.7763 73.1853 70.2054 82.3501L105.687 100.68C110.797 95.7542 116.101 91.0029 121.682 86.5587C196.557 27.0643 303.063 24.0742 380.733 79.3088C463.002 137.83 493.507 246.098 460.186 339.845L408.75 313.252C428.053 248.812 410.276 178.442 358.164 134.564C319.621 102.072 266.301 90.8083 215.398 103.895L224.563 141.138C263.291 130.877 304.435 139.438 333.476 163.912C376.74 200.346 388.772 260.844 362.783 311.081L353.956 328.131L473.324 389.806L482.109 372.777C539.996 260.936 505.989 121.375 402.975 48.0768"/></svg>
           </div>
           <h3>GitOps Monitoring</h3>
         </div>
-        <p>Displays Flux Operator version, cluster sync status, Flux controllers health and reconciler stats.</p>
+        <p>Displays <a href="https://fluxoperator.dev" style="color: var(--brand-light); text-decoration: none;">Flux Operator</a> version, cluster sync status, Flux controllers health and reconciler stats.</p>
       </div>
       <div class="feature-card">
         <div class="feature-header">
           <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
           </div>
@@ -586,13 +624,13 @@
         <h2>Your clusters, organized</h2>
         <p>Keep your clusters tidy with favorites, custom names, and colors. Hide the ones you don't need.</p>
         <ul class="feature-list">
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Mark clusters as favorites for quick access</li>
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Custom display names and colors</li>
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Auto-watch kubeconfig for changes</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Mark clusters as favorites for quick access</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Custom display names and colors</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Auto-watch kubeconfig for changes</li>
         </ul>
       </div>
       <div class="feature-visual">
-        <img src="screenshots/kswitch-cluster-list.png" alt="KSwitch Cluster List" class="feature-img">
+        <img src="screenshots/kswitch-cluster-list.png" alt="KSwitch Cluster List" class="feature-img" loading="lazy" decoding="async">
       </div>
     </div>
   </section>
@@ -605,13 +643,13 @@
         <h2>Cluster at a glance</h2>
         <p>See Kubernetes version, node health, and cluster capacity. Monitor Flux Operator sync status and reconciler statistics.</p>
         <ul class="feature-list">
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Kubernetes version and health status</li>
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Node list with resource capacity</li>
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Flux reconciler status and statistics</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Kubernetes version and health status</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Node list with resource capacity</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Flux reconciler status and statistics</li>
         </ul>
       </div>
       <div class="feature-visual">
-        <img src="screenshots/kswitch-cluster-details.png" alt="KSwitch Cluster Details" class="feature-img">
+        <img src="screenshots/kswitch-cluster-details.png" alt="KSwitch Cluster Details" class="feature-img" loading="lazy" decoding="async">
       </div>
     </div>
   </section>
@@ -624,13 +662,13 @@
         <h2>Fully configurable</h2>
         <p>Customize paths, refresh intervals, and notification preferences. Support for multiple kubeconfig files.</p>
         <ul class="feature-list">
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Custom kubectl path</li>
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Configurable refresh intervals</li>
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Auto-start on login</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Custom kubectl path</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Configurable refresh intervals</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Auto-start on login</li>
         </ul>
       </div>
       <div class="feature-visual">
-        <img src="screenshots/kswitch-settings.png" alt="KSwitch Settings" class="feature-img">
+        <img src="screenshots/kswitch-settings.png" alt="KSwitch Settings" class="feature-img" loading="lazy" decoding="async">
       </div>
     </div>
   </section>
@@ -640,7 +678,7 @@
     <div class="dist-grid">
       <div class="dist-card">
         <div class="dist-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>
           </svg>
         </div>
@@ -649,7 +687,7 @@
       </div>
       <div class="dist-card">
         <div class="dist-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
         </div>
@@ -658,7 +696,7 @@
       </div>
       <div class="dist-card">
         <div class="dist-icon">
-          <svg viewBox="0 0 32 32" fill="white" stroke="white" stroke-width="0.8"><path d="M-0.136 16.708c0.152-8.765 6.287-15.005 13.797-16.015 8.959-1.199 16.495 4.895 17.943 12.979 1.375 7.667-2.839 14.844-9.787 17.688-0.599 0.244-0.927 0.109-1.156-0.5l-3.453-8.969c-0.197-0.527-0.063-0.855 0.453-1.088 1.563-0.709 2.536-1.896 2.797-3.6 0.411-2.64-1.5-5.077-4.161-5.307-2.423-0.235-4.609 1.453-5 3.853-0.339 2.131 0.713 4.115 2.697 5.016 0.62 0.281 0.745 0.557 0.505 1.188l-3.469 9.031c-0.167 0.443-0.531 0.6-1 0.417-3.661-1.432-6.667-4.167-8.437-7.677-1.609-3.177-1.624-5.661-1.729-7.021zM1.213 16.584c0.027 0.427 0.041 0.921 0.084 1.427 0.405 4.64 3.197 9.26 8.452 11.817 0.209 0.093 0.287 0.052 0.365-0.145 0.959-2.527 1.927-5.052 2.901-7.579 0.083-0.208 0.041-0.307-0.152-0.427-2.041-1.287-3.057-3.131-2.943-5.552 0.063-1.391 0.6-2.615 1.537-3.636 1.932-2.109 4.968-2.568 7.453-1.135 2.052 1.187 3.197 3.484 2.916 5.839-0.235 1.968-1.244 3.479-2.953 4.5-0.172 0.104-0.224 0.187-0.145 0.389 0.979 2.532 1.953 5.063 2.916 7.595 0.079 0.203 0.157 0.244 0.36 0.145 2.297-1.068 4.208-2.599 5.688-4.64 2.244-3.115 3.171-6.579 2.728-10.391-0.88-7.584-7.703-13.865-16.489-12.781-6.844 0.839-12.604 6.615-12.719 14.573z"/></svg>
+          <svg viewBox="0 0 32 32" fill="white" stroke="white" stroke-width="0.8" aria-hidden="true" focusable="false"><path d="M-0.136 16.708c0.152-8.765 6.287-15.005 13.797-16.015 8.959-1.199 16.495 4.895 17.943 12.979 1.375 7.667-2.839 14.844-9.787 17.688-0.599 0.244-0.927 0.109-1.156-0.5l-3.453-8.969c-0.197-0.527-0.063-0.855 0.453-1.088 1.563-0.709 2.536-1.896 2.797-3.6 0.411-2.64-1.5-5.077-4.161-5.307-2.423-0.235-4.609 1.453-5 3.853-0.339 2.131 0.713 4.115 2.697 5.016 0.62 0.281 0.745 0.557 0.505 1.188l-3.469 9.031c-0.167 0.443-0.531 0.6-1 0.417-3.661-1.432-6.667-4.167-8.437-7.677-1.609-3.177-1.624-5.661-1.729-7.021zM1.213 16.584c0.027 0.427 0.041 0.921 0.084 1.427 0.405 4.64 3.197 9.26 8.452 11.817 0.209 0.093 0.287 0.052 0.365-0.145 0.959-2.527 1.927-5.052 2.901-7.579 0.083-0.208 0.041-0.307-0.152-0.427-2.041-1.287-3.057-3.131-2.943-5.552 0.063-1.391 0.6-2.615 1.537-3.636 1.932-2.109 4.968-2.568 7.453-1.135 2.052 1.187 3.197 3.484 2.916 5.839-0.235 1.968-1.244 3.479-2.953 4.5-0.172 0.104-0.224 0.187-0.145 0.389 0.979 2.532 1.953 5.063 2.916 7.595 0.079 0.203 0.157 0.244 0.36 0.145 2.297-1.068 4.208-2.599 5.688-4.64 2.244-3.115 3.171-6.579 2.728-10.391-0.88-7.584-7.703-13.865-16.489-12.781-6.844 0.839-12.604 6.615-12.719 14.573z"/></svg>
         </div>
         <h3>Open Source</h3>
         <p>Apache-2.0 licensed. Free to use and modify.</p>
@@ -670,7 +708,7 @@
   <footer>
     <div class="footer-content">
       <div class="footer-brand">
-        <svg class="footer-icon" viewBox="0 0 16 16" fill="white"><path fill-rule="evenodd" d="M7.223.183a1.75 1.75 0 0 1 1.518 0l4.996 2.406c.48.231.829.668.947 1.187l1.234 5.407a1.75 1.75 0 0 1-.338 1.48l-3.233 4.054a.75.75 0 1 1-1.173-.935l3.233-4.054a.25.25 0 0 0 .049-.212L13.222 4.11a.25.25 0 0 0-.136-.17L8.09 1.536a.25.25 0 0 0-.217 0L2.878 3.94a.25.25 0 0 0-.136.17L1.508 9.515a.25.25 0 0 0 .049.212l3.233 4.054a.75.75 0 1 1-1.173.935L.384 10.663a1.75 1.75 0 0 1-.338-1.48L1.28 3.776a1.75 1.75 0 0 1 .947-1.187zM5.22 11.16a.75.75 0 0 0 0 1.06l2.25 2.25L8 15l.53-.53l2.25-2.25a.75.75 0 1 0-1.06-1.06l-.97.97V5.87l.97.97a.75.75 0 1 0 1.06-1.06L8.53 3.53L8 3l-.53.53l-2.25 2.25a.75.75 0 0 0 1.06 1.06l.97-.97v6.26l-.97-.97a.75.75 0 0 0-1.06 0" clip-rule="evenodd"/></svg>
+        <svg class="footer-icon" viewBox="0 0 16 16" fill="white" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M7.223.183a1.75 1.75 0 0 1 1.518 0l4.996 2.406c.48.231.829.668.947 1.187l1.234 5.407a1.75 1.75 0 0 1-.338 1.48l-3.233 4.054a.75.75 0 1 1-1.173-.935l3.233-4.054a.25.25 0 0 0 .049-.212L13.222 4.11a.25.25 0 0 0-.136-.17L8.09 1.536a.25.25 0 0 0-.217 0L2.878 3.94a.25.25 0 0 0-.136.17L1.508 9.515a.25.25 0 0 0 .049.212l3.233 4.054a.75.75 0 1 1-1.173.935L.384 10.663a1.75 1.75 0 0 1-.338-1.48L1.28 3.776a1.75 1.75 0 0 1 .947-1.187zM5.22 11.16a.75.75 0 0 0 0 1.06l2.25 2.25L8 15l.53-.53l2.25-2.25a.75.75 0 1 0-1.06-1.06l-.97.97V5.87l.97.97a.75.75 0 1 0 1.06-1.06L8.53 3.53L8 3l-.53.53l-2.25 2.25a.75.75 0 0 0 1.06 1.06l.97-.97v6.26l-.97-.97a.75.75 0 0 0-1.06 0" clip-rule="evenodd"/></svg>
         <span>KSwitch</span>
       </div>
       <div class="footer-links">
@@ -683,6 +721,8 @@
       </div>
     </div>
   </footer>
+
+</main>
 
 </body>
 </html>

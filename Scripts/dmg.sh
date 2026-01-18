@@ -72,6 +72,7 @@ if command -v create-dmg &>/dev/null; then
         --icon "$APP_NAME.app" 150 190
         --app-drop-link 450 190
         --no-internet-enable
+        --skip-jenkins
     )
 
     # Add volume icon if app has one
