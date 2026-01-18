@@ -21,7 +21,7 @@ import Mockable
     }
 
     @Test func kubectlRunnerCanBeCreated() async {
-        let runner = KubectlRunner(settings: { .default })
+        let runner = KubectlRunner(settings: .default)
         let settings = await runner.currentSettings()
         #expect(settings == .default)
     }
@@ -39,7 +39,7 @@ import Mockable
             )
             .willReturn(CommandResult(output: "ctx1\nctx2\nctx3\n", exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         let contexts = try await kubectl.getContexts()
 
         #expect(contexts == ["ctx1", "ctx2", "ctx3"])
@@ -51,7 +51,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: "", exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         let contexts = try await kubectl.getContexts()
 
         #expect(contexts.isEmpty)
@@ -63,7 +63,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: "ctx1\n\nctx2\n\n\n", exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         let contexts = try await kubectl.getContexts()
 
         #expect(contexts == ["ctx1", "ctx2"])
@@ -83,7 +83,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: versionJSON, exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         let version = try await kubectl.getVersion(context: "test-ctx")
 
         #expect(version == "v1.29.2")
@@ -95,7 +95,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: "not json", exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
 
         await #expect(throws: (any Error).self) {
             _ = try await kubectl.getVersion(context: "test-ctx")
@@ -132,7 +132,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: nodesJSON, exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         let nodes = try await kubectl.getNodes(context: "test-ctx")
 
         #expect(nodes.count == 2)
@@ -161,7 +161,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: nodesJSON, exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         let nodes = try await kubectl.getNodes(context: "test-ctx")
 
         #expect(nodes.isEmpty)
@@ -185,7 +185,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: nodesJSON, exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         let nodes = try await kubectl.getNodes(context: "test-ctx")
 
         #expect(nodes.count == 1)
@@ -213,7 +213,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: nodesJSON, exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         let nodes = try await kubectl.getNodes(context: "test-ctx")
 
         #expect(nodes.count == 1)
@@ -231,7 +231,7 @@ import Mockable
                 exitCode: 1
             ))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
 
         await #expect(throws: KSwitchError.self) {
             _ = try await kubectl.getFluxReport(context: "test-ctx")
@@ -247,7 +247,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: emptyListJSON, exitCode: 0))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
 
         await #expect(throws: KSwitchError.self) {
             _ = try await kubectl.getFluxReport(context: "test-ctx")
@@ -262,7 +262,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: "connection refused", exitCode: 1))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
 
         await #expect(throws: KSwitchError.self) {
             _ = try await kubectl.getContexts()
@@ -275,7 +275,7 @@ import Mockable
             .run(.any, args: .any, environment: .any, timeout: .any)
             .willReturn(CommandResult(output: "", exitCode: -15, timedOut: true))
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
 
         await #expect(throws: KSwitchError.timeout(10)) {
             _ = try await kubectl.getContexts()
@@ -295,7 +295,7 @@ import Mockable
                 return CommandResult(output: "{\"serverVersion\":{\"gitVersion\":\"v1.29.0\"}}", exitCode: 0)
             }
 
-        let kubectl = KubectlRunner(runner: mock, settings: testSettings)
+        let kubectl = KubectlRunner(runner: mock, settings: testSettings())
         _ = try await kubectl.getVersion(context: "my-cluster")
 
         #expect(capturedArgs?.contains("--context") == true)

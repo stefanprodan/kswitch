@@ -10,6 +10,26 @@ private actor DidTimeout {
     func set() { value = true }
 }
 
+/// Thread-safe data accumulator for concurrent pipe reading.
+private final class DataAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func append(_ newData: Data) {
+        lock.lock()
+        data.append(newData)
+        lock.unlock()
+    }
+
+    func finalize(with remainingData: Data) -> Data {
+        lock.lock()
+        data.append(remainingData)
+        let result = data
+        lock.unlock()
+        return result
+    }
+}
+
 /// Default implementation of CommandRunner using Foundation's Process.
 public struct DefaultCommandRunner: CommandRunner {
     public init() {}
@@ -34,6 +54,19 @@ public struct DefaultCommandRunner: CommandRunner {
         let didTimeout = DidTimeout()
 
         return try await withCheckedThrowingContinuation { continuation in
+            // Thread-safe accumulators for pipe data
+            let stdoutAccumulator = DataAccumulator()
+            let stderrAccumulator = DataAccumulator()
+
+            // Set up readability handlers to drain data continuously (prevents 64KB buffer deadlock)
+            stdout.fileHandleForReading.readabilityHandler = { handle in
+                stdoutAccumulator.append(handle.availableData)
+            }
+
+            stderr.fileHandleForReading.readabilityHandler = { handle in
+                stderrAccumulator.append(handle.availableData)
+            }
+
             let timeoutTask = Task {
                 try await Task.sleep(for: .seconds(timeout))
                 if process.isRunning {
@@ -42,30 +75,41 @@ public struct DefaultCommandRunner: CommandRunner {
                 }
             }
 
-            Task {
-                do {
-                    try process.run()
-                    process.waitUntilExit()
-                    timeoutTask.cancel()
+            // Use terminationHandler instead of blocking waitUntilExit
+            process.terminationHandler = { terminatedProcess in
+                timeoutTask.cancel()
 
-                    let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-                    let errData = stderr.fileHandleForReading.readDataToEndOfFile()
-                    let output = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                    let errorOutput = String(data: errData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                // Clear handlers and read any remaining data
+                stdout.fileHandleForReading.readabilityHandler = nil
+                stderr.fileHandleForReading.readabilityHandler = nil
 
-                    // Combine stdout and stderr for error cases
-                    let finalOutput = process.terminationStatus == 0 ? output : errorOutput
+                let finalStdout = stdoutAccumulator.finalize(with: stdout.fileHandleForReading.readDataToEndOfFile())
+                let finalStderr = stderrAccumulator.finalize(with: stderr.fileHandleForReading.readDataToEndOfFile())
+
+                // Use lossy UTF-8 conversion to handle malformed output
+                let output = String(decoding: finalStdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+                let errorOutput = String(decoding: finalStderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // Combine stdout and stderr for error cases
+                let finalOutput = terminatedProcess.terminationStatus == 0 ? output : errorOutput
+
+                Task {
                     let timedOut = await didTimeout.value
-
                     continuation.resume(returning: CommandResult(
                         output: finalOutput,
-                        exitCode: process.terminationStatus,
+                        exitCode: terminatedProcess.terminationStatus,
                         timedOut: timedOut
                     ))
-                } catch {
-                    timeoutTask.cancel()
-                    continuation.resume(throwing: error)
                 }
+            }
+
+            do {
+                try process.run()
+            } catch {
+                timeoutTask.cancel()
+                stdout.fileHandleForReading.readabilityHandler = nil
+                stderr.fileHandleForReading.readabilityHandler = nil
+                continuation.resume(throwing: error)
             }
         }
     }

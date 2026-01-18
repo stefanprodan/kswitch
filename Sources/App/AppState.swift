@@ -34,21 +34,13 @@ final class AppState {
     @ObservationIgnored
     private var _kubeconfigWatcher: KubeconfigWatcher?
 
-    @ObservationIgnored
-    nonisolated(unsafe) private var _settingsSnapshot: AppSettings = .default
-
-    private func getKubectl() -> KubectlRunner {
-        // Update settings snapshot for the service
-        _settingsSnapshot = settings
-
+    private func getKubectl() async -> KubectlRunner {
         if let kubectl = _kubectl {
+            await kubectl.updateSettings(settings)
             return kubectl
         }
 
-        // Capture a reference to the snapshot that can be read from any context
-        let service = KubectlRunner { [weak self] in
-            self?._settingsSnapshot ?? .default
-        }
+        let service = KubectlRunner(settings: settings)
         _kubectl = service
         return service
     }
@@ -202,7 +194,7 @@ final class AppState {
         let clusterName = cluster(for: contextName)?.effectiveName ?? contextName
 
         // Try to get version - this also serves as reachability check
-        let kubectlService = getKubectl()
+        let kubectlService = await getKubectl()
         do {
             let version = try await kubectlService.getVersion(context: contextName)
             status.kubernetesVersion = version
