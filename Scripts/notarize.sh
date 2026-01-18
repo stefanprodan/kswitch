@@ -103,19 +103,3 @@ if xcrun stapler validate "$APP_BUNDLE"; then
 else
     fail "Stapler validation failed"
 fi
-
-# Create distribution ZIP
-log "--- Creating distribution archive ---"
-DIST_DIR="$ROOT/dist"
-mkdir -p "$DIST_DIR"
-DIST_ZIP="$DIST_DIR/${APP_NAME}-${APP_VERSION}.zip"
-ditto -c -k --keepParent "$APP_BUNDLE" "$DIST_ZIP"
-
-# Create SHA256 checksum
-DIST_SHA="$DIST_DIR/${APP_NAME}-${APP_VERSION}.zip.sha256"
-shasum -a 256 "$DIST_ZIP" | awk '{print $1}' > "$DIST_SHA"
-
-log ""
-log "App is ready for distribution:"
-log "  $DIST_ZIP"
-log "  $DIST_SHA"
