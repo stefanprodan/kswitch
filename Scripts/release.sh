@@ -160,6 +160,15 @@ APP_STORE_CONNECT_KEY_ID="$APP_STORE_CONNECT_KEY_ID" \
 APP_STORE_CONNECT_ISSUER_ID="$APP_STORE_CONNECT_ISSUER_ID" \
     "$ROOT/Scripts/notarize.sh"
 
+log "--- dmg.sh ---"
+APP_NAME="$APP_NAME" \
+APP_VERSION="$APP_VERSION" \
+APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" \
+APP_STORE_CONNECT_API_KEY_PATH="$APP_STORE_CONNECT_API_KEY_PATH" \
+APP_STORE_CONNECT_KEY_ID="$APP_STORE_CONNECT_KEY_ID" \
+APP_STORE_CONNECT_ISSUER_ID="$APP_STORE_CONNECT_ISSUER_ID" \
+    "$ROOT/Scripts/dmg.sh"
+
 #------------------------------------------------------------------------------
 # Create distribution files
 #------------------------------------------------------------------------------
@@ -169,6 +178,8 @@ mkdir -p "$DIST_DIR"
 
 DIST_ZIP="$DIST_DIR/${APP_NAME}.zip"
 DIST_SHA="$DIST_DIR/${APP_NAME}.zip.sha256"
+DIST_DMG="$DIST_DIR/${APP_NAME}.dmg"
+DIST_DMG_SHA="$DIST_DIR/${APP_NAME}.dmg.sha256"
 
 log "--- Creating ZIP archive ---"
 ditto -c -k --keepParent "$ROOT/${APP_NAME}.app" "$DIST_ZIP"
@@ -207,6 +218,8 @@ gh release create "$GIT_TAG" \
     --generate-notes \
     "$DIST_ZIP" \
     "$DIST_SHA" \
+    "$DIST_DMG" \
+    "$DIST_DMG_SHA" \
     "$DIST_DIR/appcast.xml"
 
 log ""
@@ -217,4 +230,6 @@ log ""
 log "Distribution files:"
 log "    $DIST_ZIP"
 log "    $DIST_SHA"
+log "    $DIST_DMG"
+log "    $DIST_DMG_SHA"
 log "    $DIST_DIR/appcast.xml"
