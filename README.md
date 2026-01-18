@@ -29,9 +29,11 @@ KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 
 ### Download (Recommended)
 
-Download the KSwitch zip file from [GitHub releases](https://github.com/stefanprodan/kswitch/releases),
-unzip it, and move `KSwitch.app` to your Applications folder.
-The app is code-signed and notarized for Gatekeeper.
+Download `KSwitch.dmg` from [GitHub releases](https://github.com/stefanprodan/kswitch/releases),
+open it, and drag `KSwitch.app` to your Applications folder.
+
+A ZIP archive is also available for those who prefer it.
+Both formats are code-signed and notarized for Gatekeeper.
 
 While the app is running, it will check for new versions automatically and update itself if allowed.
 

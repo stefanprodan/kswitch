@@ -9,7 +9,7 @@ APP_NAME := KSwitch
 APP_BUNDLE := $(APP_NAME).app
 BUNDLE_ID := com.stefanprodan.kswitch
 MACOS_MIN_VERSION := 15.0
-APP_VERSION := 0.0.1-devel
+APP_VERSION ?= 0.0.1-devel
 BUILD_NUMBER := $(shell date +%s)
 SPARKLE_PUBLIC_KEY := MfrlXRkKGSeOdKGJiIgMSmOX9oZQJHd1DSiNhM2WpT4=
 SPARKLE_FEED_URL := https://github.com/stefanprodan/kswitch/releases/latest/download/appcast.xml
