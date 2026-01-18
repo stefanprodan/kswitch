@@ -10,6 +10,9 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    #if ENABLE_SPARKLE
+    @Environment(\.sparkleUpdater) private var sparkleUpdater
+    #endif
 
     private var needsSetup: Bool {
         appState.error != nil
@@ -50,6 +53,17 @@ struct MenuBarView: View {
             // Cluster list (scrollable)
             clusterListSection
                 .padding(.vertical, 12)
+
+            #if ENABLE_SPARKLE
+            if sparkleUpdater?.isUpdateAvailable == true {
+                Divider()
+                    .padding(.horizontal, 16)
+
+                updateSection
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
+            #endif
 
             Divider()
                 .padding(.horizontal, 16)
@@ -292,6 +306,45 @@ struct MenuBarView: View {
         .buttonStyle(.plain)
         .help(cluster.contextName)
     }
+
+    // MARK: - Update Section
+
+    #if ENABLE_SPARKLE
+    private var updateSection: some View {
+        Button {
+            sparkleUpdater?.checkForUpdates()
+        } label: {
+            HStack {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white)
+
+                if let version = sparkleUpdater?.availableVersion {
+                    Text("Update available – v\(version)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white)
+                } else {
+                    Text("Update available")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    #endif
 
     // MARK: - Action Bar
 

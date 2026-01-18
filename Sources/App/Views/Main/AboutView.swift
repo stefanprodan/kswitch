@@ -18,6 +18,15 @@ struct AboutView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     }
 
+    private var buildDate: String? {
+        guard let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String,
+              let timestamp = TimeInterval(buildNumber) else {
+            return nil
+        }
+        let date = Date(timeIntervalSince1970: timestamp)
+        return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -84,6 +93,15 @@ struct AboutView: View {
                         .textSelection(.enabled)
                 }
 
+                if let buildDate {
+                    GridRow {
+                        Text("Build Date")
+                            .foregroundStyle(.secondary)
+                        Text(buildDate)
+                            .textSelection(.enabled)
+                    }
+                }
+
                 GridRow {
                     Text("License")
                         .foregroundStyle(.secondary)
@@ -120,9 +138,8 @@ struct AboutView: View {
             Button {
                 openURL(URL(string: "https://github.com/stefanprodan/kswitch/issues/new")!)
             } label: {
-                Label("Open GitHub Issue", systemImage: "bubble.left.and.exclamationmark.bubble.right")
+                Label("Open issue", systemImage: "bubble.left.and.exclamationmark.bubble.right")
             }
-            .buttonStyle(.borderedProminent)
         }
     }
 
@@ -137,7 +154,7 @@ struct AboutView: View {
                 Button {
                     sparkleUpdater?.checkForUpdates()
                 } label: {
-                    Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
+                    Label("Check now", systemImage: "arrow.triangle.2.circlepath")
                 }
                 .disabled(sparkleUpdater?.canCheckForUpdates != true)
 
