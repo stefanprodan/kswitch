@@ -3,6 +3,7 @@
 [![release](https://img.shields.io/github/release/stefanprodan/kswitch/all.svg)](https://github.com/stefanprodan/kswitch/releases)
 [![test](https://github.com/stefanprodan/kswitch/actions/workflows/test.yaml/badge.svg)](https://github.com/stefanprodan/kswitch/actions/workflows/test.yaml)
 [![platform](https://img.shields.io/badge/Platform-macOS%2015-blue.svg)](https://developer.apple.com)
+[![install](https://img.shields.io/badge/Install-KSwitch-blue.svg)](https://stefanprodan.github.io/kswitch/)
 [![license](https://img.shields.io/github/license/stefanprodan/kswitch.svg)](https://github.com/stefanprodan/kswitch/blob/main/LICENSE)
 
 KSwitch is a native macOS app for managing Kubernetes contexts and monitoring

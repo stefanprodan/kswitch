@@ -31,6 +31,17 @@ public actor ShellEnvironment {
 
     private var cachedShellPath: String?
 
+    /// Common installation paths for executables on macOS.
+    private static let commonPaths: [String] = [
+        "/opt/homebrew/bin",              // Apple Silicon Homebrew
+        "/usr/local/bin",                 // Intel Homebrew, manual installs
+        "/opt/local/bin",                 // MacPorts
+        "/usr/bin",                       // System binaries
+        "/bin",                           // Core system binaries
+        "/run/current-system/sw/bin",     // Nix (nix-darwin)
+        "/nix/var/nix/profiles/default/bin", // Nix (default profile)
+    ]
+
     public init() {}
 
     /// Returns minimal environment variables for kubectl subprocesses.
@@ -127,8 +138,44 @@ public actor ShellEnvironment {
     }
 
     /// Finds an executable by name using `which` through the user's login shell.
+    /// Falls back to searching common paths if shell lookup fails.
     /// Returns the full path if found, nil otherwise.
     public func findExecutable(named name: String) async -> String? {
+        // First try shell which
+        if let path = await findExecutableViaShell(named: name) {
+            return path
+        }
+
+        // Fallback: search common paths directly
+        if let path = searchCommonPaths(for: name) {
+            AppLog.debug("Found \(name) via fallback search at: \(path)", category: .shell)
+            return path
+        }
+
+        return nil
+    }
+
+    /// Searches common paths for an executable when shell `which` fails.
+    private func searchCommonPaths(for name: String) -> String? {
+        let homeDir = ProcessInfo.processInfo.environment["HOME"] ?? ""
+        let homePaths = [
+            "\(homeDir)/bin",
+            "\(homeDir)/.nix-profile/bin",  // Nix (user profile)
+            "\(homeDir)/.asdf/shims",       // asdf version manager
+        ]
+        let searchPaths = Self.commonPaths + homePaths
+
+        for dir in searchPaths {
+            let fullPath = "\(dir)/\(name)"
+            if FileManager.default.isExecutableFile(atPath: fullPath) {
+                return fullPath
+            }
+        }
+        return nil
+    }
+
+    /// Finds an executable by name using `which` through the user's login shell.
+    private func findExecutableViaShell(named name: String) async -> String? {
         let processEnv = ProcessInfo.processInfo.environment
         let shellBinary = processEnv["SHELL"] ?? "/bin/zsh"
         let shell = Shell.detect(from: shellBinary)
@@ -154,7 +201,7 @@ public actor ShellEnvironment {
                 let data = accumulator.finalize(with: pipe.fileHandleForReading.readDataToEndOfFile())
 
                 guard terminatedProcess.terminationStatus == 0 else {
-                    AppLog.debug("Could not find \(name) in PATH", category: .shell)
+                    AppLog.debug("Could not find \(name) via shell which", category: .shell)
                     continuation.resume(returning: nil)
                     return
                 }
@@ -162,7 +209,7 @@ public actor ShellEnvironment {
                 // Use lossy UTF-8 conversion
                 let output = String(decoding: data, as: UTF8.self)
                 guard let path = shell.parseWhichOutput(output) else {
-                    AppLog.debug("Could not find \(name) in PATH", category: .shell)
+                    AppLog.debug("Could not parse which output for \(name)", category: .shell)
                     continuation.resume(returning: nil)
                     return
                 }
