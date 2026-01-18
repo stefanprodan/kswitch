@@ -15,8 +15,8 @@ KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 ## Features
 
 - **Quick Context Switching** - Switch between Kubernetes contexts from the menu bar
-- **Cluster Status** - Shows Kubernetes version, nodes health, and cluster capacity
-- **GitOps Monitoring** - Displays Flux Operator version, cluster sync status, and reconciler stats
+- **Cluster Status** - Shows Kubernetes version, node health, and cluster capacity
+- **GitOps Monitoring** - Displays Flux Operator version, cluster sync status, and reconciler status
 - **Organization** - Mark clusters as favorites, hide unused ones, customize display names and colors
 - **Notifications** - Get notified when clusters become degraded or Flux reconcilers fail
 
@@ -29,7 +29,7 @@ KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 
 ### Download (Recommended)
 
-Download [`KSwitch.dmg`](https://github.com/stefanprodan/kswitch/releases/latest/download/KSwitch.dmg),
+Download [KSwitch.dmg](https://github.com/stefanprodan/kswitch/releases/latest/download/KSwitch.dmg),
 open it, and drag `KSwitch.app` to your Applications folder.
 
 A ZIP archive with the app bundle is also available on the [GitHub releases](https://github.com/stefanprodan/kswitch/releases) page.
@@ -53,7 +53,7 @@ which comes with Xcode 26.2 or later.
 ## Usage
 
 Launch KSwitch from Applications and allow it to access your kubeconfig file when prompted.
-The app will appear in the menu bar from where you can switch Kubernetes contexts and
+The app will appear in the menu bar where you can switch Kubernetes contexts and
 open the main dashboard.
 
 ### Configuration
@@ -61,7 +61,7 @@ open the main dashboard.
 By default, KSwitch uses `~/.kube/config` and auto-detects `kubectl` from your shell `PATH`.
 
 In the Settings view, you can customize:
-- Kubeconfig file path, including support for multiple files delimited by `:`
+- Kubeconfig file path, including support for multiple files delimited by `:` (e.g. `~/.kube/config:~/.kube/other`)
 - Kubectl binary path
 - Auto-refresh interval for clusters and Flux status
 - Notification preferences
