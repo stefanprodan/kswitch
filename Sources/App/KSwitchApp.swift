@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import SwiftUI
+import UserNotifications
 import Domain
 import Infrastructure
 #if ENABLE_SPARKLE
@@ -12,6 +13,7 @@ import Sparkle
 struct KSwitchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var appState = AppState()
+    @Environment(\.openWindow) private var openWindow
 
     #if ENABLE_SPARKLE
     @State private var sparkleUpdater = SparkleUpdater()
@@ -25,6 +27,10 @@ struct KSwitchApp: App {
                 #if ENABLE_SPARKLE
                 .environment(\.sparkleUpdater, sparkleUpdater)
                 #endif
+                .onReceive(NotificationCenter.default.publisher(for: .openMainWindow)) { _ in
+                    openWindow(id: "main")
+                    NSApplication.shared.activate(ignoringOtherApps: true)
+                }
         } label: {
             MenuBarIcon()
         }
@@ -56,11 +62,41 @@ struct KSwitchApp: App {
     }
 }
 
-// App delegate for startup configuration
+// Notification name for opening main window from notification clicks
+extension Notification.Name {
+    static let openMainWindow = Notification.Name("openMainWindow")
+}
+
+// App delegate for startup configuration and notification handling
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Start as menu bar only (no dock icon)
         NSApp.setActivationPolicy(.accessory)
+
+        // Set self as the notification center delegate to handle user interactions
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    // Called when user clicks on a notification
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        // Post notification to trigger main window opening from SwiftUI context
+        Task { @MainActor in
+            NotificationCenter.default.post(name: .openMainWindow, object: nil)
+        }
+        completionHandler()
+    }
+
+    // Show notifications even when app is in foreground
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 }
