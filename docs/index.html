@@ -374,6 +374,61 @@
       position: relative;
       z-index: 1;
     }
+    .feature-img.lightbox-trigger {
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .feature-img.lightbox-trigger:hover {
+      transform: scale(1.02);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+
+    /* Lightbox */
+    .lightbox {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .lightbox.active {
+      display: flex;
+    }
+    .lightbox img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      width: 40px;
+      height: 40px;
+      background: var(--white-10);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease;
+    }
+    .lightbox-close:hover {
+      background: var(--white-8);
+    }
+    .lightbox-close svg {
+      width: 20px;
+      height: 20px;
+      color: #fff;
+    }
 
     /* Distribution */
     .distribution {
@@ -493,18 +548,27 @@
     }
     .skip-link {
       position: absolute;
-      top: -40px;
+      left: -9999px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      z-index: 100;
+    }
+    .skip-link:focus {
+      position: fixed;
+      top: 16px;
       left: 16px;
+      width: auto;
+      height: auto;
+      overflow: visible;
       padding: 10px 14px;
       background: #fff;
       color: #000;
       border-radius: 8px;
       font-weight: 600;
       text-decoration: none;
-      z-index: 10;
-      transition: top 0.2s ease;
     }
-    .skip-link:focus { top: 16px; }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -630,7 +694,7 @@
         </ul>
       </div>
       <div class="feature-visual">
-        <img src="screenshots/kswitch-cluster-list.png" alt="KSwitch Cluster List" class="feature-img" loading="lazy" decoding="async">
+        <img src="screenshots/kswitch-cluster-list.png" alt="KSwitch Cluster List" class="feature-img lightbox-trigger" loading="lazy" decoding="async">
       </div>
     </div>
   </section>
@@ -649,7 +713,7 @@
         </ul>
       </div>
       <div class="feature-visual">
-        <img src="screenshots/kswitch-cluster-details.png" alt="KSwitch Cluster Details" class="feature-img" loading="lazy" decoding="async">
+        <img src="screenshots/kswitch-cluster-details.png" alt="KSwitch Cluster Details" class="feature-img lightbox-trigger" loading="lazy" decoding="async">
       </div>
     </div>
   </section>
@@ -668,7 +732,7 @@
         </ul>
       </div>
       <div class="feature-visual">
-        <img src="screenshots/kswitch-settings.png" alt="KSwitch Settings" class="feature-img" loading="lazy" decoding="async">
+        <img src="screenshots/kswitch-settings.png" alt="KSwitch Settings" class="feature-img lightbox-trigger" loading="lazy" decoding="async">
       </div>
     </div>
   </section>
@@ -723,6 +787,41 @@
   </footer>
 
 </main>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <img src="" alt="" id="lightbox-img">
+</div>
+
+<script>
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+  const triggers = document.querySelectorAll('.lightbox-trigger');
+
+  triggers.forEach(img => {
+    img.addEventListener('click', () => {
+      lightboxImg.src = img.src;
+      lightboxImg.alt = img.alt;
+      lightbox.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    });
+  });
+
+  lightbox.addEventListener('click', () => {
+    lightbox.classList.remove('active');
+    document.body.style.overflow = '';
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && lightbox.classList.contains('active')) {
+      lightbox.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  });
+</script>
 
 </body>
 </html>
