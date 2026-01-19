@@ -38,16 +38,20 @@ fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 : "${APP_VERSION:?APP_VERSION is required}"
 : "${BUNDLE_ID:?BUNDLE_ID is required}"
 : "${MACOS_MIN_VERSION:?MACOS_MIN_VERSION is required}"
-: "${BUILD_NUMBER:?BUILD_NUMBER is required}"
 : "${SPARKLE_PUBLIC_KEY:?SPARKLE_PUBLIC_KEY is required}"
 : "${SPARKLE_FEED_URL:?SPARKLE_FEED_URL is required}"
 
 GIT_TAG="v${APP_VERSION}"
 
+# Auto-compute build number from existing releases (count + 1)
+RELEASE_COUNT=$(gh release list --limit 1000 2>/dev/null | wc -l | tr -d ' ')
+BUILD_NUMBER=$((RELEASE_COUNT + 1))
+
 log "==> Release Configuration"
-log "    App Name:    $APP_NAME"
-log "    Version:     $APP_VERSION"
-log "    Git Tag:     $GIT_TAG"
+log "    App Name:      $APP_NAME"
+log "    Version:       $APP_VERSION"
+log "    Build Number:  $BUILD_NUMBER (based on $RELEASE_COUNT existing releases)"
+log "    Git Tag:       $GIT_TAG"
 
 #------------------------------------------------------------------------------
 # Validate required tools
@@ -201,6 +205,7 @@ RELEASE_URL="${REPO_URL}/releases/tag/${GIT_TAG}"
 
 APP_NAME="$APP_NAME" \
 APP_VERSION="$GIT_TAG" \
+BUILD_NUMBER="$BUILD_NUMBER" \
 SPARKLE_PRIVATE_KEY="$SPARKLE_PRIVATE_KEY" \
 DIST_ZIP="$DIST_ZIP" \
 DOWNLOAD_URL="$DOWNLOAD_URL" \
