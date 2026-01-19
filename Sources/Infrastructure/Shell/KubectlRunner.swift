@@ -28,7 +28,7 @@ public actor KubectlRunner {
         self.settings = newSettings
     }
 
-    private func kubectlPath() async throws -> String {
+    private func kubectlPath() async throws(KSwitchError) -> String {
         if let configured = settings.kubectlPath, !configured.isEmpty {
             return configured
         }
@@ -51,7 +51,7 @@ public actor KubectlRunner {
         _ args: [String],
         context: String? = nil,
         logErrors: Bool = true
-    ) async throws -> String {
+    ) async throws(KSwitchError) -> String {
         let path = try await kubectlPath()
         let env = await ShellEnvironment.shared.getEnvironment(
             kubeconfigPaths: settings.effectiveKubeconfigPaths
@@ -62,12 +62,17 @@ public actor KubectlRunner {
             fullArgs = ["--context", ctx] + fullArgs
         }
 
-        let result = try await runner.run(
-            path,
-            args: fullArgs,
-            environment: env,
-            timeout: Self.commandTimeout
-        )
+        let result: CommandResult
+        do {
+            result = try await runner.run(
+                path,
+                args: fullArgs,
+                environment: env,
+                timeout: Self.commandTimeout
+            )
+        } catch {
+            throw KSwitchError.kubectlFailed(error.localizedDescription)
+        }
 
         if result.timedOut {
             AppLog.error("kubectl timed out after \(Self.commandTimeout)s", category: .kubectl)
@@ -90,21 +95,21 @@ public actor KubectlRunner {
         settings
     }
 
-    public func getContexts() async throws -> [String] {
+    public func getContexts() async throws(KSwitchError) -> [String] {
         let output = try await run(["config", "get-contexts", "-o", "name"])
         return output.components(separatedBy: .newlines).filter { !$0.isEmpty }
     }
 
-    public func getCurrentContext() async throws -> String {
+    public func getCurrentContext() async throws(KSwitchError) -> String {
         try await run(["config", "current-context"])
     }
 
-    public func setCurrentContext(_ name: String) async throws {
+    public func setCurrentContext(_ name: String) async throws(KSwitchError) {
         AppLog.info("Switching to context: \(name)", category: .kubectl)
         _ = try await run(["config", "use-context", name])
     }
 
-    public func getVersion(context: String) async throws -> String {
+    public func getVersion(context: String) async throws(KSwitchError) -> String {
         struct VersionResponse: Decodable {
             struct Version: Decodable {
                 let gitVersion: String
@@ -113,12 +118,17 @@ public actor KubectlRunner {
         }
 
         let output = try await run(["version", "-o", "json"], context: context)
-        let response = try JSONDecoder().decode(VersionResponse.self, from: Data(output.utf8))
+        let response: VersionResponse
+        do {
+            response = try JSONDecoder().decode(VersionResponse.self, from: Data(output.utf8))
+        } catch {
+            throw KSwitchError.decodingFailed(error.localizedDescription)
+        }
         AppLog.debug("Fetched cluster info for \(context): \(response.serverVersion.gitVersion)", category: .kubectl)
         return response.serverVersion.gitVersion
     }
 
-    public func getNodes(context: String) async throws -> [ClusterNode] {
+    public func getNodes(context: String) async throws(KSwitchError) -> [ClusterNode] {
         struct NodeList: Decodable {
             let items: [NodeItem]
         }
@@ -150,7 +160,12 @@ public actor KubectlRunner {
         }
 
         let output = try await run(["get", "nodes", "-o", "json"], context: context)
-        let nodeList = try JSONDecoder().decode(NodeList.self, from: Data(output.utf8))
+        let nodeList: NodeList
+        do {
+            nodeList = try JSONDecoder().decode(NodeList.self, from: Data(output.utf8))
+        } catch {
+            throw KSwitchError.decodingFailed(error.localizedDescription)
+        }
 
         return nodeList.items.map { item in
             // Find Ready condition
@@ -173,21 +188,28 @@ public actor KubectlRunner {
         }
     }
 
-    public func getFluxReport(context: String) async throws -> FluxReportSpec {
+    public func getFluxReport(context: String) async throws(KSwitchError) -> FluxReportSpec {
         let output: String
         do {
             // Don't log errors - we handle expected failures (CRD not found)
             output = try await run(["get", "fluxreport", "-A", "-o", "json"], context: context, logErrors: false)
-        } catch KSwitchError.kubectlFailed(let message) {
+        } catch {
             // CRD not installed - treat as Flux not installed
-            if message.contains("doesn't have a resource type") {
+            if case .kubectlFailed(let message) = error, message.contains("doesn't have a resource type") {
                 throw KSwitchError.fluxReportNotFound
             }
             // Log unexpected errors
-            AppLog.error("FluxReport fetch failed: \(message)", category: .flux)
-            throw KSwitchError.kubectlFailed(message)
+            if case .kubectlFailed(let message) = error {
+                AppLog.error("FluxReport fetch failed: \(message)", category: .flux)
+            }
+            throw error
         }
-        let list = try JSONDecoder().decode(FluxReportList.self, from: Data(output.utf8))
+        let list: FluxReportList
+        do {
+            list = try JSONDecoder().decode(FluxReportList.self, from: Data(output.utf8))
+        } catch {
+            throw KSwitchError.decodingFailed(error.localizedDescription)
+        }
         guard let first = list.items.first else {
             throw KSwitchError.fluxReportNotFound
         }

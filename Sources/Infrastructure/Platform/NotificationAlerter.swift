@@ -43,7 +43,7 @@ public actor NotificationAlerter {
 
         let content = UNMutableNotificationContent()
         content.title = "Cluster Unreachable"
-        content.body = "\(clusterName) is not responding"
+        content.body = "\(clusterName) is offline"
         content.sound = .default
 
         let request = UNNotificationRequest(

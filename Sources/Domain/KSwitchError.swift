@@ -7,9 +7,8 @@ public enum KSwitchError: LocalizedError, Sendable, Equatable {
     case kubectlNotFound
     case kubectlFailed(String)
     case fluxReportNotFound
-    case clusterUnreachable
     case timeout(TimeInterval)
-    case invalidResponse(String)
+    case decodingFailed(String)
 
     public var errorDescription: String? {
         switch self {
@@ -19,12 +18,10 @@ public enum KSwitchError: LocalizedError, Sendable, Equatable {
             return "kubectl error: \(msg)"
         case .fluxReportNotFound:
             return "FluxReport not found in cluster"
-        case .clusterUnreachable:
-            return "Cluster is not reachable"
         case .timeout(let seconds):
             return "Command timed out after \(Int(seconds))s"
-        case .invalidResponse(let msg):
-            return "Invalid response: \(msg)"
+        case .decodingFailed(let msg):
+            return "Failed to parse response: \(msg)"
         }
     }
 }

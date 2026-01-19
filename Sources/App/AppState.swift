@@ -206,12 +206,8 @@ final class AppState {
                 await NotificationAlerter.shared.notifyClusterReachable(clusterName: clusterName)
             }
         } catch {
-            let errorMsg: String
-            if let kswitchError = error as? KSwitchError {
-                errorMsg = kswitchError.errorDescription ?? error.localizedDescription
-            } else {
-                errorMsg = error.localizedDescription
-            }
+            // 'error' is now KSwitchError due to typed throws
+            let errorMsg = error.errorDescription ?? "Unknown error"
             status.reachability = .unreachable(errorMsg)
             status.fluxOperator = .unknown
             status.lastChecked = Date()
@@ -233,13 +229,14 @@ final class AppState {
         do {
             status.nodes = try await nodesTask
             status.nodeError = nil
+        } catch let error as KSwitchError {
+            // async let erases typed throws, so we still need to downcast
+            status.nodes = []
+            status.nodeError = error.errorDescription ?? "Unknown error"
+            AppLog.warning("Failed to get nodes for \(contextName): \(status.nodeError ?? "unknown")")
         } catch {
             status.nodes = []
-            if let kswitchError = error as? KSwitchError {
-                status.nodeError = kswitchError.errorDescription ?? error.localizedDescription
-            } else {
-                status.nodeError = error.localizedDescription
-            }
+            status.nodeError = error.localizedDescription
             AppLog.warning("Failed to get nodes for \(contextName): \(status.nodeError ?? "unknown")")
         }
 
@@ -271,13 +268,14 @@ final class AppState {
         } catch KSwitchError.fluxReportNotFound {
             status.fluxOperator = .notInstalled
             status.fluxError = nil
+        } catch let error as KSwitchError {
+            // async let erases typed throws, so we still need to downcast
+            status.fluxOperator = .unknown
+            status.fluxError = error.errorDescription ?? "Unknown error"
+            AppLog.warning("Failed to get FluxReport for \(contextName): \(status.fluxError ?? "unknown")")
         } catch {
             status.fluxOperator = .unknown
-            if let kswitchError = error as? KSwitchError {
-                status.fluxError = kswitchError.errorDescription ?? error.localizedDescription
-            } else {
-                status.fluxError = error.localizedDescription
-            }
+            status.fluxError = error.localizedDescription
             AppLog.warning("Failed to get FluxReport for \(contextName): \(status.fluxError ?? "unknown")")
         }
 
