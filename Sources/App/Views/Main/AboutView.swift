@@ -18,12 +18,18 @@ struct AboutView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     }
 
+    private var buildNumber: String? {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+    }
+
     private var buildDate: String? {
-        guard let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String,
-              let timestamp = TimeInterval(buildNumber) else {
+        guard let timestamp = Bundle.main.infoDictionary?["BuildTimestamp"] as? String else {
             return nil
         }
-        let date = Date(timeIntervalSince1970: timestamp)
+        let formatter = ISO8601DateFormatter()
+        guard let date = formatter.date(from: timestamp) else {
+            return nil
+        }
         return date.formatted(date: .abbreviated, time: .shortened)
     }
 
@@ -89,8 +95,13 @@ struct AboutView: View {
                 GridRow {
                     Text("Version")
                         .foregroundStyle(.secondary)
-                    Text(appVersion)
-                        .textSelection(.enabled)
+                    if let buildNumber {
+                        Text("\(appVersion) (\(buildNumber))")
+                            .textSelection(.enabled)
+                    } else {
+                        Text(appVersion)
+                            .textSelection(.enabled)
+                    }
                 }
 
                 if let buildDate {
