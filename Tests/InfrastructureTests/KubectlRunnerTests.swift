@@ -89,7 +89,7 @@ import Mockable
         #expect(version == "v1.29.2")
     }
 
-    @Test func getVersionThrowsOnInvalidJSON() async throws {
+    @Test func getVersionThrowsDecodingFailedOnInvalidJSON() async throws {
         let mock = MockCommandRunner()
         given(mock)
             .run(.any, args: .any, environment: .any, timeout: .any)
@@ -97,7 +97,7 @@ import Mockable
 
         let kubectl = KubectlRunner(runner: mock, settings: testSettings())
 
-        await #expect(throws: (any Error).self) {
+        await #expect(throws: KSwitchError.self) {
             _ = try await kubectl.getVersion(context: "test-ctx")
         }
     }

@@ -26,12 +26,6 @@ import Testing
         #expect(error.errorDescription!.contains("FluxReport"))
     }
 
-    @Test func clusterUnreachableHasDescription() {
-        let error = KSwitchError.clusterUnreachable
-        #expect(error.errorDescription != nil)
-        #expect(error.errorDescription!.contains("reachable"))
-    }
-
     @Test func timeoutHasDescription() {
         let error = KSwitchError.timeout(10)
         #expect(error.errorDescription != nil)
@@ -39,10 +33,11 @@ import Testing
         #expect(error.errorDescription!.contains("10s"))
     }
 
-    @Test func invalidResponseIncludesMessage() {
-        let error = KSwitchError.invalidResponse("unexpected format")
+    @Test func decodingFailedIncludesMessage() {
+        let error = KSwitchError.decodingFailed("keyNotFound")
         #expect(error.errorDescription != nil)
-        #expect(error.errorDescription!.contains("unexpected format"))
+        #expect(error.errorDescription!.contains("keyNotFound"))
+        #expect(error.errorDescription!.contains("parse"))
     }
 
     // MARK: - LocalizedError Conformance
@@ -52,9 +47,8 @@ import Testing
             .kubectlNotFound,
             .kubectlFailed("test"),
             .fluxReportNotFound,
-            .clusterUnreachable,
             .timeout(30),
-            .invalidResponse("test")
+            .decodingFailed("test"),
         ]
 
         for error in errors {
