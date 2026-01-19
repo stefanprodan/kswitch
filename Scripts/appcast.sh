@@ -7,6 +7,7 @@
 # Required environment variables:
 #   APP_NAME             Application name (e.g., KSwitch)
 #   APP_VERSION          Version with v prefix (e.g., v0.1.0)
+#   BUILD_NUMBER         Numeric build number for Sparkle version comparison
 #   SPARKLE_PRIVATE_KEY  EdDSA private key (base64 string from Sparkle's generate_keys)
 #   DIST_ZIP             Path to local ZIP file
 #   DOWNLOAD_URL         URL where ZIP will be downloadable
@@ -23,6 +24,7 @@ fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 : "${APP_NAME:?APP_NAME is required}"
 : "${APP_VERSION:?APP_VERSION is required}"
+: "${BUILD_NUMBER:?BUILD_NUMBER is required}"
 : "${SPARKLE_PRIVATE_KEY:?SPARKLE_PRIVATE_KEY is required}"
 : "${DIST_ZIP:?DIST_ZIP is required}"
 : "${DOWNLOAD_URL:?DOWNLOAD_URL is required}"
@@ -47,9 +49,10 @@ VERSION="${APP_VERSION#v}"
 PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
 
 log "==> Generating appcast.xml"
-log "    Version:  $VERSION"
-log "    ZIP:      $DIST_ZIP"
-log "    URL:      $DOWNLOAD_URL"
+log "    Version:       $VERSION"
+log "    Build Number:  $BUILD_NUMBER"
+log "    ZIP:           $DIST_ZIP"
+log "    URL:           $DOWNLOAD_URL"
 
 # Sign the archive
 log "--- Signing archive ---"
@@ -67,7 +70,7 @@ cat > "$APPCAST_OUTPUT" << EOF
     <item>
       <title>Version ${VERSION}</title>
       <pubDate>${PUB_DATE}</pubDate>
-      <sparkle:version>${VERSION}</sparkle:version>
+      <sparkle:version>${BUILD_NUMBER}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
       <description><![CDATA[<h2>${APP_NAME} v${VERSION}</h2><p><a href="${RELEASE_URL}">View release notes on GitHub</a></p>]]></description>
