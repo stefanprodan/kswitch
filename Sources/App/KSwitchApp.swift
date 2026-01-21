@@ -32,7 +32,7 @@ struct KSwitchApp: App {
                     NSApplication.shared.activate(ignoringOtherApps: true)
                 }
         } label: {
-            MenuBarIcon()
+            MenuBarIcon(variant: menuBarIconVariant)
         }
         .menuBarExtraStyle(.window)
 
@@ -59,6 +59,19 @@ struct KSwitchApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
+    }
+
+    private var menuBarIconVariant: MenuBarIconVariant {
+        #if ENABLE_SPARKLE
+        if sparkleUpdater.isUpdateAvailable {
+            return .info
+        }
+        #endif
+        if let status = appState.currentClusterStatus,
+           case .unreachable = status.reachability {
+            return .info
+        }
+        return .normal
     }
 }
 

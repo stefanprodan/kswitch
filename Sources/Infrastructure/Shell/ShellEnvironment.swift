@@ -5,6 +5,9 @@ import Foundation
 import Domain
 
 /// Thread-safe data accumulator for shell output.
+///
+/// Marked `@unchecked Sendable` because thread safety is manually guaranteed via `NSLock`.
+/// All mutable state (`data`) is protected by the lock in both `append` and `finalize`.
 private final class ShellDataAccumulator: @unchecked Sendable {
     private let lock = NSLock()
     private var data = Data()
