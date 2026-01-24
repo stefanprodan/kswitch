@@ -40,19 +40,22 @@ struct MainWindow: View {
                 }
 
                 ToolbarItem {
-                    if selectedItem == .clusters && isSearching {
-                        TextField("Search clusters", text: $searchText)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 180)
-                            .onExitCommand {
-                                isSearching = false
-                                searchText = ""
-                            }
+                    if (selectedItem == .clusters || selectedItem == .tasks) && isSearching {
+                        FocusableTextField(
+                            placeholder: selectedItem == .clusters ? "Search clusters" : "Search tasks",
+                            text: $searchText,
+                            isFocused: isSearching
+                        )
+                        .frame(width: 180)
+                        .onExitCommand {
+                            isSearching = false
+                            searchText = ""
+                        }
                     }
                 }
 
                 ToolbarItem {
-                    if selectedItem == .clusters {
+                    if selectedItem == .clusters || selectedItem == .tasks {
                         Button(action: {
                             isSearching.toggle()
                             if !isSearching {
@@ -123,7 +126,7 @@ struct MainWindow: View {
         } else if selectedItem == .about {
             AboutView()
         } else if selectedItem == .tasks {
-            TasksListView(navigationPath: $navigationPath)
+            TasksListView(searchText: $searchText, navigationPath: $navigationPath)
                 .navigationTitle("Tasks")
         } else if let error = appState.error {
             errorStateView(message: error)
@@ -236,6 +239,57 @@ struct MainWindow: View {
                 navigationPath = NavigationPath()
                 navigationPath.append(task)
             }
+        }
+    }
+}
+
+// MARK: - Focusable TextField
+
+struct FocusableTextField: NSViewRepresentable {
+    let placeholder: String
+    @Binding var text: String
+    var isFocused: Bool
+
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = NSTextField()
+        textField.placeholderString = placeholder
+        textField.delegate = context.coordinator
+        textField.bezelStyle = .roundedBezel
+        textField.focusRingType = .exterior
+        return textField
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        // Only update text if it differs to avoid cursor jumping
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        nsView.placeholderString = placeholder
+
+        // Only focus once when first appearing
+        if isFocused && !context.coordinator.hasFocused {
+            context.coordinator.hasFocused = true
+            DispatchQueue.main.async {
+                nsView.window?.makeFirstResponder(nsView)
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: FocusableTextField
+        var hasFocused = false
+
+        init(_ parent: FocusableTextField) {
+            self.parent = parent
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let textField = notification.object as? NSTextField else { return }
+            parent.text = textField.stringValue
         }
     }
 }

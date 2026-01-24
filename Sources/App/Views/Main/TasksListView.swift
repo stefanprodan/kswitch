@@ -7,7 +7,17 @@ import Infrastructure
 
 struct TasksListView: View {
     @Environment(AppState.self) private var appState
+    @Binding var searchText: String
     @Binding var navigationPath: NavigationPath
+
+    private var filteredTasks: [ScriptTask] {
+        if searchText.isEmpty {
+            return appState.tasks
+        }
+        return appState.tasks.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText)
+        }
+    }
 
     var body: some View {
         Group {
@@ -15,8 +25,10 @@ struct TasksListView: View {
                 noDirectoryView
             } else if appState.tasks.isEmpty {
                 emptyStateView
+            } else if filteredTasks.isEmpty {
+                noResultsView
             } else {
-                List(appState.tasks) { task in
+                List(filteredTasks) { task in
                     NavigationLink(value: task) {
                         TaskRowView(task: task)
                     }
@@ -26,6 +38,14 @@ struct TasksListView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
+        }
+    }
+
+    private var noResultsView: some View {
+        ContentUnavailableView {
+            Label("No Results", systemImage: "magnifyingglass")
+        } description: {
+            Text("Try a different search term.")
         }
     }
 

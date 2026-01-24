@@ -18,10 +18,17 @@ struct TaskRowView: View {
         appState.taskRun(for: task)
     }
 
+    private var hasRun: Bool {
+        isRunning || lastRun != nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // First line: name + status badge
             HStack {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+
                 Text(task.name)
                     .font(.system(size: 13, weight: .regular))
                     .lineLimit(1)
@@ -29,23 +36,15 @@ struct TaskRowView: View {
 
                 Spacer()
 
-                statusBadge
-            }
-
-            // Script path and last run info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(task.scriptPath)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
-                if let run = lastRun {
-                    Text(lastRunText(run))
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                if hasRun {
+                    statusBadge
                 }
             }
+
+            Text(statusText)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 20)
         }
         .padding(.vertical, 4)
     }
@@ -82,7 +81,7 @@ struct TaskRowView: View {
             return "Running"
         }
         guard let run = lastRun else {
-            return "Never run"
+            return ""
         }
         if run.timedOut {
             return "Timed out"
@@ -103,8 +102,13 @@ struct TaskRowView: View {
         return run.succeeded ? .green : .red
     }
 
-    private func lastRunText(_ run: TaskRun) -> String {
-        let status = run.timedOut ? "Timed out" : (run.succeeded ? "Succeeded" : "Failed")
-        return "\(status) in \(run.formattedDuration)"
+    private var statusText: String {
+        if isRunning {
+            return "Running..."
+        }
+        guard let run = lastRun else {
+            return "Never run"
+        }
+        return "Completed in \(run.formattedDuration)"
     }
 }

@@ -7,7 +7,6 @@ import Infrastructure
 
 struct TaskRunView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.colorScheme) private var colorScheme
     let task: ScriptTask
 
     @State private var inputValues: [String: String] = [:]
@@ -36,26 +35,35 @@ struct TaskRunView: View {
             // Header
             headerSection
                 .padding()
-                .background(
-                    colorScheme == .dark
-                        ? Color.white.opacity(0.05)
-                        : Color.black.opacity(0.02)
-                )
 
             Divider()
 
-            // Inputs section (if task has inputs)
-            if !task.inputs.isEmpty {
-                inputsSection
-                    .padding()
+            // Inputs and run button
+            actionSection
+                .padding()
 
-                Divider()
-            }
+            Divider()
 
             // Terminal output
             outputSection
         }
-        .navigationTitle(task.name)
+        .navigationTitle("Task")
+        .toolbar {
+            ToolbarItem(id: "task-flexible-space") {
+                Spacer()
+            }
+
+            ToolbarItem {
+                Button {
+                    NSWorkspace.shared.selectFile(task.scriptPath, inFileViewerRootedAtPath: "")
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .buttonStyle(.borderless)
+                .help("Reveal in Finder")
+            }
+        }
+        .toolbarBackground(.visible, for: .windowToolbar)
         .onAppear {
             // Initialize input values from last run if available
             if let run = lastRun {
@@ -67,54 +75,25 @@ struct TaskRunView: View {
     // MARK: - Header Section
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Task info
+        HStack(spacing: 12) {
+            Image(systemName: "terminal.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(.secondary)
+
             VStack(alignment: .leading, spacing: 4) {
+                Text(task.name)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
                 Text(task.scriptPath)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-
-                if let run = lastRun {
-                    HStack(spacing: 8) {
-                        statusIndicator(for: run)
-                        Text(lastRunText(run))
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                    .textSelection(.enabled)
             }
 
-            // Run/Stop button
-            HStack {
-                if isRunning {
-                    Button {
-                        Task { await appState.stopTask(task) }
-                    } label: {
-                        Label("Stop", systemImage: "stop.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                } else {
-                    Button {
-                        Task { await appState.runTask(task, inputValues: inputValues) }
-                    } label: {
-                        Label("Run", systemImage: "play.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canRun)
-                }
-
-                Spacer()
-
-                Button {
-                    NSWorkspace.shared.selectFile(task.scriptPath, inFileViewerRootedAtPath: "")
-                } label: {
-                    Label("Reveal in Finder", systemImage: "folder")
-                }
-                .buttonStyle(.bordered)
-            }
+            Spacer()
         }
     }
 
@@ -144,13 +123,11 @@ struct TaskRunView: View {
         return "\(status) in \(run.formattedDuration)"
     }
 
-    // MARK: - Inputs Section
+    // MARK: - Action Section
 
-    private var inputsSection: some View {
+    private var actionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Inputs")
-                .font(.headline)
-
+            // Inputs (if any)
             ForEach(task.inputs, id: \.name) { input in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
@@ -171,6 +148,38 @@ struct TaskRunView: View {
                     TextField(input.isRequired ? "Required" : "Optional", text: inputBinding(for: input.name))
                         .textFieldStyle(.roundedBorder)
                         .disabled(isRunning)
+                }
+            }
+
+            // Run/Stop button and status
+            HStack {
+                if isRunning {
+                    Button {
+                        Task { await appState.stopTask(task) }
+                    } label: {
+                        Label("Stop", systemImage: "stop.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                } else {
+                    Button {
+                        Task { await appState.runTask(task, inputValues: inputValues) }
+                    } label: {
+                        Label("Run", systemImage: "play.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canRun)
+                }
+
+                Spacer()
+
+                if let run = lastRun {
+                    HStack(spacing: 8) {
+                        statusIndicator(for: run)
+                        Text(lastRunText(run))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
