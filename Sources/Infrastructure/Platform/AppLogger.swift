@@ -12,6 +12,7 @@ public enum LogCategory: String, Sendable {
     case shell = "Shell"
     case notifications = "Notifications"
     case updates = "Updates"
+    case tasks = "Tasks"
 }
 
 /// Unified logging via Apple's `os.Logger` subsystem.

@@ -1,0 +1,115 @@
+// Copyright 2026 Stefan Prodan.
+// SPDX-License-Identifier: Apache-2.0
+
+import Foundation
+import Domain
+
+/// Monitors a directory for `*.kswitch.sh` task scripts.
+///
+/// Uses polling to reliably detect file changes including new files added to
+/// the directory. The polling interval is configurable and defaults to 2 seconds.
+@MainActor
+public final class TasksWatcher {
+    private var pollingTask: Task<Void, Never>?
+    private var lastKnownPaths: Set<String> = []
+    private let onChange: @MainActor ([ScriptTask]) -> Void
+    private let directoryPath: String
+    private let pollInterval: Duration
+
+    public init(
+        directoryPath: String,
+        pollInterval: Duration = .seconds(2),
+        onChange: @escaping @MainActor ([ScriptTask]) -> Void
+    ) {
+        self.directoryPath = directoryPath
+        self.pollInterval = pollInterval
+        self.onChange = onChange
+    }
+
+    public func start() {
+        stop()
+
+        // Initial scan (returns empty array if directory doesn't exist)
+        let tasks = discoverTasks()
+        lastKnownPaths = Set(tasks.map { $0.scriptPath })
+        onChange(tasks)
+
+        // Start polling loop - runs even if directory doesn't exist yet
+        // This allows detecting when the directory is created later
+        pollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                try? await Task.sleep(for: self.pollInterval)
+                guard !Task.isCancelled else { return }
+
+                let tasks = self.discoverTasks()
+                let currentPaths = Set(tasks.map { $0.scriptPath })
+
+                // Only notify if file list changed
+                if currentPaths != self.lastKnownPaths {
+                    AppLog.info("Tasks directory changed, found \(tasks.count) tasks", category: .tasks)
+                    self.lastKnownPaths = currentPaths
+                    self.onChange(tasks)
+                }
+            }
+        }
+
+        let expandedPath = expandPath(directoryPath)
+        AppLog.info("Started polling tasks directory at \(expandedPath)", category: .tasks)
+    }
+
+    public func stop() {
+        pollingTask?.cancel()
+        pollingTask = nil
+    }
+
+    /// Scans the directory for executable `*.kswitch.sh` scripts.
+    public func discoverTasks() -> [ScriptTask] {
+        let expandedPath = expandPath(directoryPath)
+        let fileManager = FileManager.default
+
+        guard fileManager.fileExists(atPath: expandedPath) else {
+            return []
+        }
+
+        do {
+            let contents = try fileManager.contentsOfDirectory(atPath: expandedPath)
+            var tasks: [ScriptTask] = []
+
+            for filename in contents {
+                guard filename.hasSuffix(".kswitch.sh") else { continue }
+
+                let fullPath = (expandedPath as NSString).appendingPathComponent(filename)
+
+                // Check if executable
+                guard fileManager.isExecutableFile(atPath: fullPath) else {
+                    AppLog.debug("Skipping non-executable: \(filename)", category: .tasks)
+                    continue
+                }
+
+                let inputs = ScriptTask.parseInputs(from: fullPath)
+                let task = ScriptTask(scriptPath: fullPath, inputs: inputs)
+                tasks.append(task)
+                AppLog.debug("Discovered task: \(task.name) with \(inputs.count) inputs", category: .tasks)
+            }
+
+            tasks.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            AppLog.info("Discovered \(tasks.count) tasks", category: .tasks)
+            return tasks
+        } catch {
+            AppLog.error("Failed to scan tasks directory: \(error)", category: .tasks)
+            return []
+        }
+    }
+
+    private func expandPath(_ path: String) -> String {
+        if path.hasPrefix("~") {
+            return NSHomeDirectory() + path.dropFirst()
+        }
+        return path
+    }
+
+    deinit {
+        pollingTask?.cancel()
+    }
+}
