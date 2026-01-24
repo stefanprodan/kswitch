@@ -14,6 +14,7 @@ struct SettingsView: View {
     #endif
     @State private var kubeconfigPath: String = ""
     @State private var kubectlPath: String = ""
+    @State private var tasksDirectory: String = ""
 
     private var defaultKubeconfig: String {
         NSHomeDirectory() + "/.kube/config"
@@ -34,6 +35,18 @@ struct SettingsView: View {
         !kubeconfigPaths.isEmpty &&
         validKubeconfigCount > 0 &&
         FileManager.default.fileExists(atPath: kubectlPath)
+    }
+
+    private var expandedTasksDirectory: String {
+        if tasksDirectory.hasPrefix("~") {
+            return NSHomeDirectory() + tasksDirectory.dropFirst()
+        }
+        return tasksDirectory
+    }
+
+    private var isTasksDirectoryValid: Bool {
+        !tasksDirectory.isEmpty &&
+        FileManager.default.fileExists(atPath: expandedTasksDirectory)
     }
 
     var body: some View {
@@ -97,6 +110,31 @@ struct SettingsView: View {
                         appState.saveToDisk()
                     }
             }
+
+            Section("Task Runner") {
+                VStack(alignment: .trailing, spacing: 2) {
+                    TextField("Tasks directory", text: $tasksDirectory)
+                        .help("Directory containing *.kswitch.sh scripts (e.g. ~/.kswitch/tasks)")
+                    tasksDirectoryStatus
+                }
+
+                Stepper("Timeout: \(state.settings.taskTimeoutMinutes) min",
+                        value: $state.settings.taskTimeoutMinutes, in: 1...60)
+                    .onChange(of: state.settings.taskTimeoutMinutes) {
+                        appState.saveToDisk()
+                    }
+
+                HStack {
+                    Spacer()
+                    Button("Save") {
+                        saveTaskSettings()
+                    }
+                    .disabled(!isTasksDirectoryValid && !tasksDirectory.isEmpty)
+                }
+            }
+            .onAppear {
+                loadTaskSettings()
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -154,6 +192,34 @@ struct SettingsView: View {
                 .foregroundStyle(.green)
         } else {
             Text("⚠ Not found")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
+    }
+
+    // MARK: - Task Runner Settings
+
+    private func loadTaskSettings() {
+        tasksDirectory = appState.settings.tasksDirectory ?? ""
+    }
+
+    private func saveTaskSettings() {
+        appState.settings.tasksDirectory = tasksDirectory.isEmpty ? nil : tasksDirectory
+        appState.saveToDisk()
+    }
+
+    @ViewBuilder
+    private var tasksDirectoryStatus: some View {
+        if tasksDirectory.isEmpty {
+            Text("Not configured")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else if isTasksDirectoryValid {
+            Text("✓ Valid")
+                .font(.caption)
+                .foregroundStyle(.green)
+        } else {
+            Text("⚠ Directory not found")
                 .font(.caption)
                 .foregroundStyle(.orange)
         }

@@ -11,6 +11,7 @@ struct MainWindow: View {
     @State private var selectedItem: SidebarItem? = .clusters
     @State private var navigationPath = NavigationPath()
     @State private var isSearching: Bool = false
+    @State private var isProgrammaticNavigation: Bool = false
 
     var body: some View {
         NavigationSplitView {
@@ -20,6 +21,9 @@ struct MainWindow: View {
                 detailView
                     .navigationDestination(for: Cluster.self) { cluster in
                         ClusterDetailView(cluster: cluster)
+                    }
+                    .navigationDestination(for: ScriptTask.self) { task in
+                        TaskRunView(task: task)
                     }
             }
             .toolbar {
@@ -85,26 +89,30 @@ struct MainWindow: View {
         .task {
             await appState.refreshAllStatuses()
         }
+        .onAppear {
+            // Handle pending navigation when window opens fresh
+            // (onChange doesn't fire for values already set before view appeared)
+            handlePendingNavigation()
+        }
         .onChange(of: selectedItem) {
-            // Clear search and navigation when switching sections
+            // Skip reset if this is a programmatic navigation
+            if isProgrammaticNavigation {
+                isProgrammaticNavigation = false
+                return
+            }
+            // Clear search and navigation when user manually switches sections
             isSearching = false
             searchText = ""
             navigationPath = NavigationPath()
         }
-        .task(id: appState.pendingClusterNavigation?.id) {
-            if let cluster = appState.pendingClusterNavigation {
-                appState.pendingClusterNavigation = nil
-                selectedItem = .clusters
-                navigationPath = NavigationPath()
-                navigationPath.append(cluster)
-            }
+        .onChange(of: appState.pendingClusterNavigation) {
+            handlePendingNavigation()
         }
         .onChange(of: appState.pendingSettingsNavigation) {
-            if appState.pendingSettingsNavigation {
-                appState.pendingSettingsNavigation = false
-                selectedItem = .settings
-                navigationPath = NavigationPath()
-            }
+            handlePendingNavigation()
+        }
+        .onChange(of: appState.pendingTaskNavigation) {
+            handlePendingNavigation()
         }
     }
 
@@ -114,6 +122,9 @@ struct MainWindow: View {
             SettingsView()
         } else if selectedItem == .about {
             AboutView()
+        } else if selectedItem == .tasks {
+            TasksListView(navigationPath: $navigationPath)
+                .navigationTitle("Tasks")
         } else if let error = appState.error {
             errorStateView(message: error)
         } else if appState.clusters.isEmpty {
@@ -186,6 +197,45 @@ struct MainWindow: View {
     private func goBack() {
         if !navigationPath.isEmpty {
             navigationPath.removeLast()
+        }
+    }
+
+    private func handlePendingNavigation() {
+        if let cluster = appState.pendingClusterNavigation {
+            appState.pendingClusterNavigation = nil
+            if selectedItem != .clusters {
+                isProgrammaticNavigation = true
+                selectedItem = .clusters
+                // Delay path update until after view transition
+                DispatchQueue.main.async {
+                    navigationPath = NavigationPath()
+                    navigationPath.append(cluster)
+                }
+            } else {
+                navigationPath = NavigationPath()
+                navigationPath.append(cluster)
+            }
+        } else if appState.pendingSettingsNavigation {
+            appState.pendingSettingsNavigation = false
+            if selectedItem != .settings {
+                isProgrammaticNavigation = true
+                selectedItem = .settings
+            }
+            navigationPath = NavigationPath()
+        } else if let task = appState.pendingTaskNavigation {
+            appState.pendingTaskNavigation = nil
+            if selectedItem != .tasks {
+                isProgrammaticNavigation = true
+                selectedItem = .tasks
+                // Delay path update until after view transition
+                DispatchQueue.main.async {
+                    navigationPath = NavigationPath()
+                    navigationPath.append(task)
+                }
+            } else {
+                navigationPath = NavigationPath()
+                navigationPath.append(task)
+            }
         }
     }
 }
