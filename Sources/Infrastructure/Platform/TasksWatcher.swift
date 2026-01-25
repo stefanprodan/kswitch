@@ -11,7 +11,7 @@ import Domain
 @MainActor
 public final class TasksWatcher {
     private var pollingTask: Task<Void, Never>?
-    private var lastKnownPaths: Set<String> = []
+    private var lastKnownState: [String: TimeInterval] = [:]  // path -> modification timestamp
     private let onChange: @MainActor ([ScriptTask]) -> Void
     private let directoryPath: String
     private let pollInterval: Duration
@@ -31,7 +31,7 @@ public final class TasksWatcher {
 
         // Initial scan (returns empty array if directory doesn't exist)
         let tasks = discoverTasks()
-        lastKnownPaths = Set(tasks.map { $0.scriptPath })
+        lastKnownState = getFileState(for: tasks)
         onChange(tasks)
 
         // Start polling loop - runs even if directory doesn't exist yet
@@ -43,12 +43,12 @@ public final class TasksWatcher {
                 guard !Task.isCancelled else { return }
 
                 let tasks = self.discoverTasks()
-                let currentPaths = Set(tasks.map { $0.scriptPath })
+                let currentState = self.getFileState(for: tasks)
 
-                // Only notify if file list changed
-                if currentPaths != self.lastKnownPaths {
+                // Notify if files changed (added, removed, or modified)
+                if currentState != self.lastKnownState {
                     AppLog.info("Tasks directory changed, found \(tasks.count) tasks", category: .tasks)
-                    self.lastKnownPaths = currentPaths
+                    self.lastKnownState = currentState
                     self.onChange(tasks)
                 }
             }
@@ -107,6 +107,19 @@ public final class TasksWatcher {
             return NSHomeDirectory() + path.dropFirst()
         }
         return path
+    }
+
+    private func getFileState(for tasks: [ScriptTask]) -> [String: TimeInterval] {
+        var state: [String: TimeInterval] = [:]
+        let fileManager = FileManager.default
+        for task in tasks {
+            if let attrs = try? fileManager.attributesOfItem(atPath: task.scriptPath),
+               let modDate = attrs[.modificationDate] as? Date {
+                // Round to seconds to avoid precision issues
+                state[task.scriptPath] = modDate.timeIntervalSince1970.rounded()
+            }
+        }
+        return state
     }
 
     deinit {

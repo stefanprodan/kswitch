@@ -11,18 +11,28 @@ struct TaskRunView: View {
 
     @State private var inputValues: [String: String] = [:]
 
+    /// Returns the current version of this task from AppState, or falls back to the passed-in task.
+    private var currentTask: ScriptTask {
+        appState.tasks.first { $0.id == task.id } ?? task
+    }
+
+    /// True if the task script has been deleted from disk.
+    private var isDeleted: Bool {
+        !appState.tasks.contains { $0.id == task.id }
+    }
+
     private var isRunning: Bool {
-        appState.isTaskRunning(task)
+        appState.isTaskRunning(currentTask)
     }
 
     private var lastRun: TaskRun? {
-        appState.taskRun(for: task)
+        appState.taskRun(for: currentTask)
     }
 
     private var canRun: Bool {
-        // Can run if not running and all required inputs are filled
-        guard !isRunning else { return false }
-        for input in task.inputs where input.isRequired {
+        // Can't run if deleted or already running
+        guard !isDeleted, !isRunning else { return false }
+        for input in currentTask.inputs where input.isRequired {
             if inputValues[input.name]?.isEmpty ?? true {
                 return false
             }
@@ -55,12 +65,22 @@ struct TaskRunView: View {
 
             ToolbarItem {
                 Button {
-                    NSWorkspace.shared.selectFile(task.scriptPath, inFileViewerRootedAtPath: "")
+                    NSWorkspace.shared.selectFile(currentTask.scriptPath, inFileViewerRootedAtPath: "")
                 } label: {
                     Image(systemName: "folder")
                 }
                 .buttonStyle(.borderless)
                 .help("Reveal in Finder")
+            }
+
+            ToolbarItem {
+                Button {
+                    appState.refreshTasks()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Refresh tasks")
             }
         }
         .toolbarBackground(.visible, for: .windowToolbar)
@@ -78,14 +98,25 @@ struct TaskRunView: View {
         HStack(spacing: 12) {
             Image(systemName: "terminal.fill")
                 .font(.system(size: 32))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isDeleted ? .red : .secondary)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(task.name)
-                    .font(.title3)
-                    .fontWeight(.semibold)
+                HStack(spacing: 8) {
+                    Text(currentTask.name)
+                        .font(.title3)
+                        .fontWeight(.semibold)
 
-                Text(task.scriptPath)
+                    if isDeleted {
+                        Text("Deleted")
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(.red))
+                    }
+                }
+
+                Text(currentTask.scriptPath)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -128,7 +159,7 @@ struct TaskRunView: View {
     private var actionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Inputs (if any)
-            ForEach(task.inputs, id: \.name) { input in
+            ForEach(currentTask.inputs, id: \.name) { input in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
                         Text(input.name)
@@ -155,7 +186,7 @@ struct TaskRunView: View {
             HStack {
                 if isRunning {
                     Button {
-                        Task { await appState.stopTask(task) }
+                        Task { await appState.stopTask(currentTask) }
                     } label: {
                         Label("Stop", systemImage: "stop.fill")
                     }
@@ -163,7 +194,7 @@ struct TaskRunView: View {
                     .tint(.red)
                 } else {
                     Button {
-                        Task { await appState.runTask(task, inputValues: inputValues) }
+                        Task { await appState.runTask(currentTask, inputValues: inputValues) }
                     } label: {
                         Label("Run", systemImage: "play.fill")
                     }

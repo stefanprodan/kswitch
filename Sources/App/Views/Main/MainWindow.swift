@@ -84,6 +84,14 @@ struct MainWindow: View {
                         .buttonStyle(.borderless)
                         .disabled(appState.isRefreshing)
                         .help("Refresh all clusters")
+                    } else if selectedItem == .tasks {
+                        Button {
+                            appState.refreshTasks()
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Refresh tasks")
                     }
                 }
             }

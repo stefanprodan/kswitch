@@ -387,6 +387,17 @@ final class AppState {
         _tasksWatcher?.start()
     }
 
+    /// Manually refreshes the task list by re-scanning the tasks directory.
+    func refreshTasks() {
+        guard let watcher = _tasksWatcher else {
+            AppLog.warning("No tasks watcher configured", category: .tasks)
+            return
+        }
+        let discovered = watcher.discoverTasks()
+        AppLog.info("Manual refresh: found \(discovered.count) tasks", category: .tasks)
+        tasks = discovered
+    }
+
     /// Runs a task with the given input values.
     func runTask(_ task: ScriptTask, inputValues: [String: String] = [:]) async {
         let scriptPath = task.scriptPath
