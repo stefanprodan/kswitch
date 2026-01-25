@@ -7,6 +7,7 @@ import Infrastructure
 
 struct ClusterDetailView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
     let cluster: Cluster
     @State private var showingEditSheet = false
 
@@ -52,6 +53,7 @@ struct ClusterDetailView: View {
                 ToolbarItem {
                     Button {
                         appState.deleteCluster(cluster)
+                        dismiss()
                     } label: {
                         Image(systemName: "trash")
                     }

@@ -54,13 +54,15 @@ struct MenuBarView: View {
             clusterListSection
                 .padding(.vertical, 12)
 
-            Divider()
-                .padding(.horizontal, 16)
+            // Tasks section (hidden if no tasks)
+            if !appState.tasks.isEmpty {
+                Divider()
+                    .padding(.horizontal, 16)
 
-            // Tasks section
-            tasksSection
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                tasksSection
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
 
             #if ENABLE_SPARKLE
             if sparkleUpdater?.isUpdateAvailable == true {
@@ -317,40 +319,21 @@ struct MenuBarView: View {
 
     // MARK: - Tasks Section
 
-    @ViewBuilder
     private var tasksSection: some View {
-        if appState.tasks.isEmpty {
-            noTasksView
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Tasks")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 4)
-
-                VStack(spacing: 4) {
-                    ForEach(appState.tasks) { task in
-                        taskRow(task: task)
-                    }
-                }
-            }
-        }
-    }
-
-    private var noTasksView: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Tasks")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.leading, 4)
 
-            Text(appState.settings.effectiveTasksDirectory == nil
-                 ? "Configure tasks directory in Settings"
-                 : "No tasks found")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 4) {
+                    ForEach(appState.tasks) { task in
+                        taskRow(task: task)
+                    }
+                }
+            }
+            .frame(maxHeight: 100)
         }
     }
 
@@ -361,18 +344,31 @@ struct MenuBarView: View {
 
         HStack(spacing: 8) {
             taskRunButton(task: task, isRunning: isRunning)
-            taskNameLabel(task.name)
-            Spacer()
-            taskOutputButton(task: task, isRunning: isRunning, lastRun: lastRun)
+
+            // Clickable area for name + spacer + status
+            Button {
+                appState.pendingTaskNavigation = task
+                dismiss()
+                openWindow(id: "main")
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            } label: {
+                HStack {
+                    Text(task.name)
+                        .font(.system(size: 12))
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Spacer()
+
+                    taskStatusIcon(isRunning: isRunning, lastRun: lastRun)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(colorScheme == .dark
-                    ? Color.white.opacity(0.05)
-                    : Color.black.opacity(0.02))
-        )
     }
 
     private func taskRunButton(task: ScriptTask, isRunning: Bool) -> some View {
@@ -403,55 +399,27 @@ struct MenuBarView: View {
         .buttonStyle(.plain)
     }
 
-    private func taskNameLabel(_ name: String) -> some View {
-        Text(name)
-            .font(.system(size: 12))
-            .foregroundStyle(colorScheme == .dark ? .white : .black)
-            .lineLimit(1)
-            .truncationMode(.tail)
-    }
-
     @ViewBuilder
-    private func taskOutputButton(task: ScriptTask, isRunning: Bool, lastRun: TaskRun?) -> some View {
-        Button {
-            appState.pendingTaskNavigation = task
-            dismiss()
-            openWindow(id: "main")
-            NSApplication.shared.activate(ignoringOtherApps: true)
-        } label: {
-            Group {
-                if isRunning {
-                    ProgressView()
-                        .scaleEffect(0.4)
-                        .frame(width: 12, height: 12)
-                } else {
-                    Image(systemName: "terminal.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(taskStatusColor(isRunning: isRunning, lastRun: lastRun))
-                }
-            }
-            .frame(width: 20, height: 20)
-            .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(colorScheme == .dark
-                        ? Color.white.opacity(0.1)
-                        : Color.black.opacity(0.05))
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func taskStatusColor(isRunning: Bool, lastRun: TaskRun?) -> Color {
+    private func taskStatusIcon(isRunning: Bool, lastRun: TaskRun?) -> some View {
         if isRunning {
-            return .blue
+            ProgressView()
+                .scaleEffect(0.5)
+                .frame(width: 14, height: 14)
+        } else if let run = lastRun {
+            if run.succeeded {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.green)
+            } else {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.red)
+            }
+        } else {
+            Image(systemName: "folder")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
         }
-        guard let run = lastRun else {
-            return .gray.opacity(0.5)
-        }
-        if run.timedOut {
-            return .orange
-        }
-        return run.succeeded ? .green : .red
     }
 
     // MARK: - Update Section

@@ -13,7 +13,7 @@ struct TerminalOutputView: NSViewRepresentable {
         terminal.configureNativeColors()
 
         // Configure for read-only display
-        terminal.getTerminal().setCursorStyle(.blinkBlock)
+        terminal.getTerminal().setCursorStyle(.steadyBlock)
         terminal.nativeBackgroundColor = NSColor.textBackgroundColor
         terminal.nativeForegroundColor = NSColor.textColor
 
@@ -25,6 +25,9 @@ struct TerminalOutputView: NSViewRepresentable {
             terminal.feed(byteArray: ArraySlice(output))
         }
 
+        // Hide cursor (VT100 escape sequence)
+        terminal.feed(text: "\u{1b}[?25l")
+
         return terminal
     }
 
@@ -34,5 +37,7 @@ struct TerminalOutputView: NSViewRepresentable {
         if !output.isEmpty {
             terminal.feed(byteArray: ArraySlice(output))
         }
+        // Hide cursor (VT100 escape sequence)
+        terminal.feed(text: "\u{1b}[?25l")
     }
 }
