@@ -14,8 +14,20 @@ struct MenuBarView: View {
     @Environment(\.sparkleUpdater) private var sparkleUpdater
     #endif
 
+    @State private var isTaskSearching: Bool = false
+    @State private var taskSearchText: String = ""
+
     private var needsSetup: Bool {
         appState.error != nil
+    }
+
+    private var filteredTasks: [ScriptTask] {
+        if taskSearchText.isEmpty {
+            return appState.tasks
+        }
+        return appState.tasks.filter {
+            $0.name.localizedCaseInsensitiveContains(taskSearchText)
+        }
     }
 
     var body: some View {
@@ -251,12 +263,12 @@ struct MenuBarView: View {
             VStack(spacing: 2) {
                 // Favorites first
                 ForEach(favorites) { cluster in
-                    clusterRow(cluster: cluster)
+                    MenuBarClusterRow(cluster: cluster)
                 }
 
                 // Then non-favorites
                 ForEach(nonFavorites) { cluster in
-                    clusterRow(cluster: cluster)
+                    MenuBarClusterRow(cluster: cluster)
                 }
 
                 // Removed clusters (grayed out)
@@ -264,7 +276,7 @@ struct MenuBarView: View {
                     Divider()
                         .padding(.vertical, 4)
                     ForEach(removedClusters) { cluster in
-                        clusterRow(cluster: cluster)
+                        MenuBarClusterRow(cluster: cluster)
                             .opacity(0.5)
                             .disabled(true)
                     }
@@ -272,153 +284,48 @@ struct MenuBarView: View {
             }
             .padding(.horizontal, 16)
         }
-        .frame(maxHeight: 200)
-    }
-
-    @ViewBuilder
-    private func clusterRow(cluster: Cluster) -> some View {
-        Button {
-            Task { await appState.switchContext(to: cluster.contextName) }
-        } label: {
-            HStack(spacing: 8) {
-                // Star indicator
-                Text(cluster.isFavorite ? "★" : "☆")
-                    .font(.system(size: 12))
-                    .foregroundStyle(cluster.isFavorite ? .yellow : .secondary)
-
-                // Cluster name with ellipsis for long names
-                Text(cluster.effectiveName)
-                    .font(.system(size: 13))
-                    .foregroundStyle(colorScheme == .dark ? .white : .black)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Spacer()
-
-                // Checkmark for current context
-                if cluster.contextName == appState.currentContext {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.blue)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(cluster.contextName == appState.currentContext
-                        ? (colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
-                        : Color.clear)
-            )
-        }
-        .buttonStyle(.plain)
-        .help(cluster.contextName)
+        .frame(maxHeight: 165)
     }
 
     // MARK: - Tasks Section
 
     private var tasksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Tasks")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.leading, 4)
+            HStack {
+                if isTaskSearching {
+                    MenuBarTaskSearchField(text: $taskSearchText)
+                } else {
+                    Text(appState.tasks.count > 3 ? "Tasks (\(appState.tasks.count))" : "Tasks")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    isTaskSearching.toggle()
+                    if !isTaskSearching {
+                        taskSearchText = ""
+                    }
+                } label: {
+                    Image(systemName: isTaskSearching ? "xmark.circle.fill" : "magnifyingglass")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(height: 16)
+            .padding(.horizontal, 8)
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 4) {
-                    ForEach(appState.tasks) { task in
-                        taskRow(task: task)
+                    ForEach(filteredTasks) { task in
+                        MenuBarTaskRow(task: task)
                     }
                 }
             }
+            .frame(height: isTaskSearching ? 100 : nil, alignment: .top)
             .frame(maxHeight: 100)
-        }
-    }
-
-    @ViewBuilder
-    private func taskRow(task: ScriptTask) -> some View {
-        let isRunning = appState.isTaskRunning(task)
-        let lastRun = appState.taskRun(for: task)
-
-        HStack(spacing: 8) {
-            taskRunButton(task: task, isRunning: isRunning)
-
-            // Clickable area for name + spacer + status
-            Button {
-                appState.pendingTaskNavigation = task
-                dismiss()
-                openWindow(id: "main")
-                NSApplication.shared.activate(ignoringOtherApps: true)
-            } label: {
-                HStack {
-                    Text(task.name)
-                        .font(.system(size: 12))
-                        .foregroundStyle(colorScheme == .dark ? .white : .black)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-
-                    Spacer()
-
-                    taskStatusIcon(isRunning: isRunning, lastRun: lastRun)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-    }
-
-    private func taskRunButton(task: ScriptTask, isRunning: Bool) -> some View {
-        Button {
-            if isRunning {
-                Task { await appState.stopTask(task) }
-            } else if task.hasRequiredInputs {
-                // Open TaskRunView for tasks with required inputs
-                appState.pendingTaskNavigation = task
-                dismiss()
-                openWindow(id: "main")
-                NSApplication.shared.activate(ignoringOtherApps: true)
-            } else {
-                Task { await appState.runTask(task) }
-            }
-        } label: {
-            Image(systemName: isRunning ? "stop.fill" : "play.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                .frame(width: 20, height: 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(colorScheme == .dark
-                            ? Color.white.opacity(0.1)
-                            : Color.black.opacity(0.05))
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private func taskStatusIcon(isRunning: Bool, lastRun: TaskRun?) -> some View {
-        if isRunning {
-            ProgressView()
-                .scaleEffect(0.5)
-                .frame(width: 14, height: 14)
-        } else if let run = lastRun {
-            if run.succeeded {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.green)
-            } else {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.red)
-            }
-        } else {
-            Image(systemName: "folder")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
         }
     }
 
