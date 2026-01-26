@@ -27,71 +27,63 @@ struct MainWindow: View {
                     }
             }
             .toolbar {
-                ToolbarItem {
-                    if !navigationPath.isEmpty {
-                        Button(action: { goBack() }) {
-                            Image(systemName: "chevron.left")
-                        }
+                ToolbarItem(id: "main-back", placement: .navigation) {
+                    Button(action: { goBack() }) {
+                        Image(systemName: "chevron.left")
                     }
+                    .opacity(navigationPath.isEmpty ? 0 : 1)
+                    .disabled(navigationPath.isEmpty)
                 }
 
-                ToolbarItem(id: "flexible-space") {
-                    Spacer()
+                ToolbarItem(id: "main-search-field", placement: .automatic) {
+                    FocusableTextField(
+                        placeholder: selectedItem == .clusters ? "Search clusters" : "Search tasks",
+                        text: $searchText,
+                        isFocused: isSearching
+                    )
+                    .frame(width: 180)
+                    .onExitCommand {
+                        isSearching = false
+                        searchText = ""
+                    }
+                    .opacity((selectedItem == .clusters || selectedItem == .tasks) && isSearching ? 1 : 0)
+                    .frame(width: (selectedItem == .clusters || selectedItem == .tasks) && isSearching ? 180 : 0)
                 }
 
-                ToolbarItem {
-                    if (selectedItem == .clusters || selectedItem == .tasks) && isSearching {
-                        FocusableTextField(
-                            placeholder: selectedItem == .clusters ? "Search clusters" : "Search tasks",
-                            text: $searchText,
-                            isFocused: isSearching
-                        )
-                        .frame(width: 180)
-                        .onExitCommand {
-                            isSearching = false
+                ToolbarItem(id: "main-search-toggle", placement: .automatic) {
+                    Button(action: {
+                        isSearching.toggle()
+                        if !isSearching {
                             searchText = ""
                         }
+                    }) {
+                        Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
                     }
+                    .buttonStyle(.borderless)
+                    .opacity(selectedItem == .clusters || selectedItem == .tasks ? 1 : 0)
+                    .disabled(!(selectedItem == .clusters || selectedItem == .tasks))
                 }
 
-                ToolbarItem {
-                    if selectedItem == .clusters || selectedItem == .tasks {
-                        Button(action: {
-                            isSearching.toggle()
-                            if !isSearching {
-                                searchText = ""
-                            }
-                        }) {
-                            Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                }
-
-                ToolbarItem {
-                    if selectedItem == .clusters {
+                // Only show refresh button for clusters section
+                if selectedItem == .clusters {
+                    ToolbarItem(id: "main-refresh", placement: .automatic) {
                         Button {
                             Task { await appState.refreshAllStatuses() }
                         } label: {
-                            if appState.isRefreshing {
-                                ProgressView()
-                                    .scaleEffect(0.5)
-                                    .frame(width: 16, height: 16)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                            }
+                            // Use consistent view type to avoid toolbar layout thrashing
+                            Image(systemName: "arrow.clockwise")
+                                .opacity(appState.isRefreshing ? 0 : 1)
+                                .overlay {
+                                    if appState.isRefreshing {
+                                        ProgressView()
+                                            .scaleEffect(0.5)
+                                    }
+                                }
+                                .frame(width: 16, height: 16)
                         }
                         .buttonStyle(.borderless)
                         .disabled(appState.isRefreshing)
                         .help("Refresh all clusters")
-                    } else if selectedItem == .tasks {
-                        Button {
-                            appState.refreshTasks()
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Refresh tasks")
                     }
                 }
             }

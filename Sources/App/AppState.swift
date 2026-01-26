@@ -72,9 +72,6 @@ final class AppState {
         // Start watching tasks directory if configured
         setupTasksWatcher()
 
-        // Setup throttled output streaming for tasks
-        setupOutputThrottling()
-
         // Initialize on launch
         Task { @MainActor [weak self] in
             await NotificationAlerter.shared.requestAuthorization()
@@ -394,10 +391,13 @@ final class AppState {
         _tasksWatcher?.start()
     }
 
-    private func setupOutputThrottling() {
-        // Collect output chunks for 100ms, then deliver the batch on Main Thread
+    private func startOutputThrottling() {
+        // Only start if not already running
+        guard outputCancellable == nil else { return }
+
+        // Collect output chunks for 100ms, then deliver the batch
         outputCancellable = outputSubject
-            .collect(.byTime(RunLoop.main, .milliseconds(100)))
+            .collect(.byTime(DispatchQueue.main, .milliseconds(100)))
             .sink { [weak self] batch in
                 guard let self = self, !batch.isEmpty else { return }
 
@@ -412,6 +412,11 @@ final class AppState {
                     self.appendTaskOutput(scriptPath: path, data: data)
                 }
             }
+    }
+
+    private func stopOutputThrottling() {
+        outputCancellable?.cancel()
+        outputCancellable = nil
     }
 
     private func appendTaskOutput(scriptPath: String, data: Data) {
@@ -450,6 +455,11 @@ final class AppState {
     func runTask(_ task: ScriptTask, inputValues: [String: String] = [:]) async {
         let scriptPath = task.scriptPath
         let startTime = Date()
+
+        // Start output throttling when first task begins
+        if runningTasks.isEmpty {
+            startOutputThrottling()
+        }
         runningTasks.insert(scriptPath)
 
         // Clear previous output when rerunning
@@ -491,6 +501,11 @@ final class AppState {
         runningTasks.remove(scriptPath)
         runningTaskIDs.removeValue(forKey: scriptPath)
 
+        // Stop output throttling when last task finishes
+        if runningTasks.isEmpty {
+            stopOutputThrottling()
+        }
+
         taskRuns[scriptPath] = TaskRun(
             output: result.output,
             exitCode: result.exitCode,
@@ -507,6 +522,11 @@ final class AppState {
             await _taskRunner.stop(runID: runID)
         }
         runningTasks.remove(task.scriptPath)
+
+        // Stop output throttling when last task finishes
+        if runningTasks.isEmpty {
+            stopOutputThrottling()
+        }
         runningTaskIDs.removeValue(forKey: task.scriptPath)
     }
 

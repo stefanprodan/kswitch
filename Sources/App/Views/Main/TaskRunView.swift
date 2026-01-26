@@ -12,6 +12,7 @@ struct TaskRunView: View {
     @State private var inputValues: [String: String] = [:]
     @State private var showingInspector: Bool = false
     @State private var scriptContent: String?
+    @State private var highlightedScript: AttributedString?
 
     /// Returns the current version of this task from AppState, or falls back to the passed-in task.
     private var currentTask: ScriptTask {
@@ -69,11 +70,7 @@ struct TaskRunView: View {
         }
         .navigationTitle("Task")
         .toolbar {
-            ToolbarItem(id: "task-flexible-space") {
-                Spacer()
-            }
-
-            ToolbarItem {
+            ToolbarItem(id: "task-reveal", placement: .automatic) {
                 Button {
                     NSWorkspace.shared.selectFile(currentTask.scriptPath, inFileViewerRootedAtPath: "")
                 } label: {
@@ -81,16 +78,6 @@ struct TaskRunView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Reveal in Finder")
-            }
-
-            ToolbarItem {
-                Button {
-                    appState.refreshTasks()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.borderless)
-                .help("Refresh tasks")
             }
         }
         .toolbarBackground(.visible, for: .windowToolbar)
@@ -104,6 +91,7 @@ struct TaskRunView: View {
             // Reset input values when switching to a different task
             inputValues = [:]
             scriptContent = nil
+            highlightedScript = nil
             // Restore from last run if available
             if let run = appState.taskRun(for: currentTask) {
                 inputValues = run.inputValues
@@ -283,8 +271,8 @@ struct TaskRunView: View {
 
     private var scriptInspectorView: some View {
         ScrollView {
-            if let content = scriptContent {
-                Text(ShellSyntaxHighlighter.highlight(content))
+            if let highlighted = highlightedScript {
+                Text(highlighted)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(8)
@@ -302,9 +290,13 @@ struct TaskRunView: View {
 
     private func loadScriptContent() {
         do {
-            scriptContent = try String(contentsOfFile: currentTask.scriptPath, encoding: .utf8)
+            let content = try String(contentsOfFile: currentTask.scriptPath, encoding: .utf8)
+            scriptContent = content
+            highlightedScript = ShellSyntaxHighlighter.highlight(content)
         } catch {
-            scriptContent = "# Error loading script: \(error.localizedDescription)"
+            let errorMessage = "# Error loading script: \(error.localizedDescription)"
+            scriptContent = errorMessage
+            highlightedScript = ShellSyntaxHighlighter.highlight(errorMessage)
         }
     }
 }

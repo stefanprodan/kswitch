@@ -11,10 +11,8 @@ struct TaskTerminalView: View {
 
     // Track previous streaming state to detect completion
     @State private var wasStreaming: Bool = false
-
-    private var attributedText: AttributedString {
-        ANSIParser.parse(output)
-    }
+    // Cache parsed output to avoid re-parsing on every render
+    @State private var attributedText: AttributedString = AttributedString()
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -32,9 +30,12 @@ struct TaskTerminalView: View {
             .background(Color(nsColor: .textBackgroundColor))
             .onAppear {
                 wasStreaming = isStreaming
+                attributedText = ANSIParser.parse(output)
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
             .onChange(of: output) {
+                // Re-parse only when output changes
+                attributedText = ANSIParser.parse(output)
                 // Auto-scroll to bottom when streaming new output
                 if isStreaming {
                     proxy.scrollTo("bottom", anchor: .bottom)
