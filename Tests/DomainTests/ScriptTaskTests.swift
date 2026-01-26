@@ -176,4 +176,150 @@ import Foundation
         let name = ScriptTask.displayName(from: "/path/to/my-cool-task.kswitch.sh")
         #expect(name == "my cool task")
     }
+
+    // MARK: - parseInputs
+
+    @Test func parseInputsExtractsRequiredInput() throws {
+        let content = """
+        #!/usr/bin/env bash
+        # KSWITCH_INPUT: AWS_PROFILE "AWS profile to use"
+        echo "hello"
+        """
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let scriptPath = tempDir.appendingPathComponent("test_input_required.kswitch.sh").path
+        try content.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+
+        let inputs = ScriptTask.parseInputs(from: scriptPath)
+
+        #expect(inputs.count == 1)
+        #expect(inputs[0].name == "AWS_PROFILE")
+        #expect(inputs[0].description == "AWS profile to use")
+        #expect(inputs[0].isRequired == true)
+
+        try FileManager.default.removeItem(atPath: scriptPath)
+    }
+
+    @Test func parseInputsExtractsOptionalInput() throws {
+        let content = """
+        #!/usr/bin/env bash
+        # KSWITCH_INPUT_OPT: TIMEOUT "Timeout in seconds"
+        echo "hello"
+        """
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let scriptPath = tempDir.appendingPathComponent("test_input_optional.kswitch.sh").path
+        try content.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+
+        let inputs = ScriptTask.parseInputs(from: scriptPath)
+
+        #expect(inputs.count == 1)
+        #expect(inputs[0].name == "TIMEOUT")
+        #expect(inputs[0].description == "Timeout in seconds")
+        #expect(inputs[0].isRequired == false)
+
+        try FileManager.default.removeItem(atPath: scriptPath)
+    }
+
+    @Test func parseInputsExtractsMultipleInputs() throws {
+        let content = """
+        #!/usr/bin/env bash
+        # KSWITCH_INPUT: AWS_PROFILE "AWS profile"
+        # KSWITCH_INPUT: CLUSTER_NAME "Cluster name"
+        # KSWITCH_INPUT_OPT: REGION "AWS region"
+        echo "hello"
+        """
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let scriptPath = tempDir.appendingPathComponent("test_input_multiple.kswitch.sh").path
+        try content.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+
+        let inputs = ScriptTask.parseInputs(from: scriptPath)
+
+        #expect(inputs.count == 3)
+        #expect(inputs[0].name == "AWS_PROFILE")
+        #expect(inputs[0].isRequired == true)
+        #expect(inputs[1].name == "CLUSTER_NAME")
+        #expect(inputs[1].isRequired == true)
+        #expect(inputs[2].name == "REGION")
+        #expect(inputs[2].isRequired == false)
+
+        try FileManager.default.removeItem(atPath: scriptPath)
+    }
+
+    @Test func parseInputsHandlesNoDescription() throws {
+        let content = """
+        #!/usr/bin/env bash
+        # KSWITCH_INPUT: VAR_NAME
+        echo "hello"
+        """
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let scriptPath = tempDir.appendingPathComponent("test_input_no_desc.kswitch.sh").path
+        try content.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+
+        let inputs = ScriptTask.parseInputs(from: scriptPath)
+
+        #expect(inputs.count == 1)
+        #expect(inputs[0].name == "VAR_NAME")
+        #expect(inputs[0].description == "")
+
+        try FileManager.default.removeItem(atPath: scriptPath)
+    }
+
+    @Test func parseInputsReturnsEmptyForNoInputs() throws {
+        let content = """
+        #!/usr/bin/env bash
+        echo "hello"
+        """
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let scriptPath = tempDir.appendingPathComponent("test_input_none.kswitch.sh").path
+        try content.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+
+        let inputs = ScriptTask.parseInputs(from: scriptPath)
+
+        #expect(inputs.isEmpty)
+
+        try FileManager.default.removeItem(atPath: scriptPath)
+    }
+
+    @Test func parseInputsReturnsEmptyForNonexistentFile() {
+        let inputs = ScriptTask.parseInputs(from: "/nonexistent/path/script.sh")
+        #expect(inputs.isEmpty)
+    }
+
+    // MARK: - hasRequiredInputs
+
+    @Test func hasRequiredInputsTrueWhenRequired() {
+        let task = ScriptTask(
+            scriptPath: "/path/to/script.sh",
+            inputs: [TaskInput(name: "VAR", isRequired: true)]
+        )
+        #expect(task.hasRequiredInputs == true)
+    }
+
+    @Test func hasRequiredInputsFalseWhenOnlyOptional() {
+        let task = ScriptTask(
+            scriptPath: "/path/to/script.sh",
+            inputs: [TaskInput(name: "VAR", isRequired: false)]
+        )
+        #expect(task.hasRequiredInputs == false)
+    }
+
+    @Test func hasRequiredInputsFalseWhenEmpty() {
+        let task = ScriptTask(scriptPath: "/path/to/script.sh", inputs: [])
+        #expect(task.hasRequiredInputs == false)
+    }
+
+    @Test func hasRequiredInputsTrueWhenMixed() {
+        let task = ScriptTask(
+            scriptPath: "/path/to/script.sh",
+            inputs: [
+                TaskInput(name: "OPT", isRequired: false),
+                TaskInput(name: "REQ", isRequired: true),
+            ]
+        )
+        #expect(task.hasRequiredInputs == true)
+    }
 }

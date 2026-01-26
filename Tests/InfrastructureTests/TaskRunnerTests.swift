@@ -160,13 +160,11 @@ private final class TestOutputAccumulator: @unchecked Sendable {
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tempDir) }
 
-        // Script that outputs ~15MB (over the 10MB limit)
+        // Script that outputs ~15MB (over the 10MB limit) using fast dd
         let scriptPath = tempDir.appendingPathComponent("large.kswitch.sh")
         try """
         #!/bin/bash
-        for i in {1..15000}; do
-            printf '%1000s\\n' | tr ' ' 'x'
-        done
+        dd if=/dev/zero bs=1048576 count=15 2>/dev/null | tr '\\0' 'x'
         """.write(to: scriptPath, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath.path)
 
