@@ -372,23 +372,32 @@ struct MenuBarView: View {
 
     private var actionBar: some View {
         HStack(spacing: 8) {
-            // Open main window
-            actionButton(icon: "folder", label: "Open") {
+            // Open main window (icon + text)
+            actionButton(icon: "macwindow", label: "Open") {
                 dismiss()
                 openWindow(id: "main")
                 NSApplication.shared.activate(ignoringOtherApps: true)
             }
             .keyboardShortcut("o", modifiers: .command)
 
-            // Refresh
+            Spacer()
+
+            // Settings (icon only)
+            iconButton(icon: "gearshape", tooltip: "Settings") {
+                appState.pendingSettingsNavigation = true
+                dismiss()
+                openWindow(id: "main")
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+            .keyboardShortcut(",", modifiers: .command)
+
+            // Refresh (icon only)
             refreshButton
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(isCurrentClusterRefreshing)
 
-            Spacer()
-
-            // Quit
-            actionButton(icon: "power", label: "Quit") {
+            // Quit (icon only)
+            iconButton(icon: "power", tooltip: "Quit") {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q", modifiers: .command)
@@ -405,30 +414,25 @@ struct MenuBarView: View {
                 await appState.refreshStatus(for: appState.currentContext)
             }
         } label: {
-            HStack(spacing: 4) {
-                Group {
-                    if isCurrentClusterRefreshing {
-                        ProgressView()
-                            .scaleEffect(0.45)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 11))
-                    }
+            ZStack {
+                if isCurrentClusterRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.7)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11))
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
                 }
-                .frame(width: 11, height: 11)
-
-                Text(isCurrentClusterRefreshing ? "Syncing" : "Refresh")
-                    .font(.system(size: 11, weight: .medium))
             }
-            .foregroundStyle(colorScheme == .dark ? .white : .black)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .frame(width: 28, height: 28)
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
             )
         }
         .buttonStyle(.plain)
+        .help(isCurrentClusterRefreshing ? "Syncing..." : "Refresh")
     }
 
     @ViewBuilder
@@ -449,6 +453,22 @@ struct MenuBarView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func iconButton(icon: String, tooltip: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
+                )
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
     }
 
     // MARK: - Info Helpers

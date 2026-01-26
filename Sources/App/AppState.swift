@@ -30,6 +30,10 @@ final class AppState {
     var pendingTaskNavigation: ScriptTask?
     private var runningTaskIDs: [String: UUID] = [:]  // scriptPath -> runID
 
+    // Throttled output streaming
+    private let outputSubject = PassthroughSubject<(String, Data), Never>()
+    private var outputCancellable: AnyCancellable?
+
     // Background refresh
     private var refreshTask: Task<Void, Never>?
     private var isBackgroundRefreshEnabled: Bool = true
@@ -67,6 +71,9 @@ final class AppState {
 
         // Start watching tasks directory if configured
         setupTasksWatcher()
+
+        // Setup throttled output streaming for tasks
+        setupOutputThrottling()
 
         // Initialize on launch
         Task { @MainActor [weak self] in
@@ -387,6 +394,47 @@ final class AppState {
         _tasksWatcher?.start()
     }
 
+    private func setupOutputThrottling() {
+        // Collect output chunks for 100ms, then deliver the batch on Main Thread
+        outputCancellable = outputSubject
+            .collect(.byTime(RunLoop.main, .milliseconds(100)))
+            .sink { [weak self] batch in
+                guard let self = self, !batch.isEmpty else { return }
+
+                // Consolidate chunks by script path (handle multiple fast outputs)
+                var consolidated: [String: Data] = [:]
+                for (path, data) in batch {
+                    consolidated[path, default: Data()].append(data)
+                }
+
+                // Apply updates efficiently
+                for (path, data) in consolidated {
+                    self.appendTaskOutput(scriptPath: path, data: data)
+                }
+            }
+    }
+
+    private func appendTaskOutput(scriptPath: String, data: Data) {
+        guard let existing = taskRuns[scriptPath] else { return }
+
+        // Don't append if task has already completed (exitCode != -1)
+        // The final result.output already contains the complete output
+        guard existing.exitCode == -1 else { return }
+
+        // Append data to the immutable struct (triggers View update)
+        var newOutput = existing.output
+        newOutput.append(data)
+
+        taskRuns[scriptPath] = TaskRun(
+            output: newOutput,
+            exitCode: existing.exitCode,
+            timestamp: existing.timestamp,
+            inputValues: existing.inputValues,
+            timedOut: existing.timedOut,
+            duration: existing.duration
+        )
+    }
+
     /// Manually refreshes the task list by re-scanning the tasks directory.
     func refreshTasks() {
         guard let watcher = _tasksWatcher else {
@@ -417,25 +465,14 @@ final class AppState {
                     self?.runningTaskIDs[scriptPath] = runID
                 }
             },
-            onOutput: { [weak self] data in
-                // Stream output to existing TaskRun if any
-                Task { @MainActor in
-                    guard let self else { return }
-                    if let existing = self.taskRuns[scriptPath] {
-                        // Append to existing output
-                        let newOutput = existing.output + data
+            onOutput: { [weak self] chunk in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+
+                    // Ensure TaskRun exists (immediate feedback)
+                    if self.taskRuns[scriptPath] == nil {
                         self.taskRuns[scriptPath] = TaskRun(
-                            output: newOutput,
-                            exitCode: existing.exitCode,
-                            timestamp: existing.timestamp,
-                            inputValues: existing.inputValues,
-                            timedOut: existing.timedOut,
-                            duration: existing.duration
-                        )
-                    } else {
-                        // Create initial TaskRun for streaming
-                        self.taskRuns[scriptPath] = TaskRun(
-                            output: data,
+                            output: Data(),
                             exitCode: -1,  // Still running
                             timestamp: Date(),
                             inputValues: inputValues,
@@ -443,6 +480,9 @@ final class AppState {
                             duration: 0
                         )
                     }
+
+                    // Send chunk to the throttler (batched updates at 10 Hz)
+                    self.outputSubject.send((scriptPath, chunk))
                 }
             }
         )

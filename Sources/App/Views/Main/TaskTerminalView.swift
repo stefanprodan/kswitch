@@ -9,6 +9,9 @@ struct TaskTerminalView: View {
     let output: Data
     var isStreaming: Bool = false
 
+    // Track previous streaming state to detect completion
+    @State private var wasStreaming: Bool = false
+
     private var attributedText: AttributedString {
         ANSIParser.parse(output)
     }
@@ -28,6 +31,7 @@ struct TaskTerminalView: View {
             }
             .background(Color(nsColor: .textBackgroundColor))
             .onAppear {
+                wasStreaming = isStreaming
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
             .onChange(of: output) {
@@ -35,6 +39,13 @@ struct TaskTerminalView: View {
                 if isStreaming {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
+            }
+            .onChange(of: isStreaming) { _, newValue in
+                // Scroll one final time when streaming stops (task completed)
+                if wasStreaming && !newValue {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+                wasStreaming = newValue
             }
         }
     }

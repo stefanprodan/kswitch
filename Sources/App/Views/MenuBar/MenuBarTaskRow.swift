@@ -68,7 +68,7 @@ struct MenuBarTaskRow: View {
         } label: {
             Image(systemName: isRunning ? "stop.fill" : "play.fill")
                 .font(.system(size: 9))
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                .foregroundStyle(isRunning ? .yellow : (colorScheme == .dark ? .white : .black))
                 .frame(width: 20, height: 20)
                 .background(
                     RoundedRectangle(cornerRadius: 4)

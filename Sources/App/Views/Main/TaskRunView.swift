@@ -10,6 +10,8 @@ struct TaskRunView: View {
     let task: ScriptTask
 
     @State private var inputValues: [String: String] = [:]
+    @State private var showingInspector: Bool = false
+    @State private var scriptContent: String?
 
     /// Returns the current version of this task from AppState, or falls back to the passed-in task.
     private var currentTask: ScriptTask {
@@ -101,6 +103,7 @@ struct TaskRunView: View {
         .onChange(of: task.id) {
             // Reset input values when switching to a different task
             inputValues = [:]
+            scriptContent = nil
             // Restore from last run if available
             if let run = appState.taskRun(for: currentTask) {
                 inputValues = run.inputValues
@@ -208,6 +211,7 @@ struct TaskRunView: View {
                 .tint(.red)
             } else {
                 Button {
+                    showingInspector = false
                     Task { await appState.runTask(currentTask, inputValues: inputValues) }
                 } label: {
                     Label("Run", systemImage: "play.fill")
@@ -215,6 +219,14 @@ struct TaskRunView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!canRun)
             }
+
+            Picker("Mode", selection: $showingInspector) {
+                Label("Output", systemImage: "text.alignleft").tag(false)
+                Label("Script", systemImage: "doc.text").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
 
             Spacer()
 
@@ -240,7 +252,9 @@ struct TaskRunView: View {
 
     private var outputSection: some View {
         Group {
-            if let run = lastRun, !run.output.isEmpty {
+            if showingInspector {
+                scriptInspectorView
+            } else if let run = lastRun, !run.output.isEmpty {
                 TaskTerminalView(output: run.output, isStreaming: isRunning)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if isRunning {
@@ -262,6 +276,35 @@ struct TaskRunView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+    }
+
+    // MARK: - Script Inspector
+
+    private var scriptInspectorView: some View {
+        ScrollView {
+            if let content = scriptContent {
+                Text(ShellSyntaxHighlighter.highlight(content))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+            } else {
+                ProgressView("Loading script...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .textBackgroundColor))
+        .task(id: currentTask.scriptPath) {
+            loadScriptContent()
+        }
+    }
+
+    private func loadScriptContent() {
+        do {
+            scriptContent = try String(contentsOfFile: currentTask.scriptPath, encoding: .utf8)
+        } catch {
+            scriptContent = "# Error loading script: \(error.localizedDescription)"
         }
     }
 }

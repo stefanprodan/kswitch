@@ -55,11 +55,12 @@ enum ANSIParser {
 
     /// Parses ANSI-escaped text into an AttributedString suitable for display.
     static func parse(_ text: String) -> AttributedString {
-        // Strip control characters (^D, ^C, etc.) except newline, tab, carriage return
+        // Strip control characters (^D, ^C, etc.) except those we handle
+        // Bell (\x07) is stripped - we don't want system beeps
         var cleaned = text.filter { char in
             guard let ascii = char.asciiValue else { return true }
-            // Keep printable chars (0x20+), newline (0x0A), tab (0x09), CR (0x0D), ESC (0x1B)
-            return ascii >= 0x20 || ascii == 0x0A || ascii == 0x09 || ascii == 0x0D || ascii == 0x1B
+            // Keep printable chars (0x20+), newline (0x0A), tab (0x09), backspace (0x08), CR (0x0D), ESC (0x1B)
+            return ascii >= 0x20 || ascii == 0x0A || ascii == 0x09 || ascii == 0x08 || ascii == 0x0D || ascii == 0x1B
         }
 
         // Strip literal ^D (caret notation for EOF) that PTY may output
@@ -296,8 +297,9 @@ enum ANSIParser {
         return result
     }
 
-    /// Processes carriage returns to collapse spinner animations.
-    /// For each line, keeps only the text after the last \r (unless followed by \n).
+    /// Processes carriage returns and backspaces to collapse terminal animations.
+    /// - Carriage return (\r): keeps only text after the last \r on each line
+    /// - Backspace (\x08): deletes the previous character
     private static func processCarriageReturns(_ text: String) -> String {
         var result: [String] = []
 
@@ -305,22 +307,49 @@ enum ANSIParser {
         let lines = text.components(separatedBy: "\n")
 
         for line in lines {
+            var processed = line
+
+            // First, handle carriage returns
             // Handle \r\n (Windows line ending) - the \r is not a "return to start"
             // Handle standalone \r - keep only text after the last one
-            if line.contains("\r") {
+            if processed.contains("\r") {
                 // Split by \r and take the last non-empty segment
-                let segments = line.components(separatedBy: "\r")
+                let segments = processed.components(separatedBy: "\r")
                 // Find the last non-empty segment (or empty if all are empty)
                 if let lastNonEmpty = segments.last(where: { !$0.isEmpty }) {
-                    result.append(lastNonEmpty)
+                    processed = lastNonEmpty
                 } else {
-                    result.append(segments.last ?? "")
+                    processed = segments.last ?? ""
                 }
-            } else {
-                result.append(line)
             }
+
+            // Then, handle backspaces
+            // Each \x08 deletes the previous character (like pressing backspace)
+            if processed.contains("\u{08}") {
+                processed = processBackspaces(processed)
+            }
+
+            result.append(processed)
         }
 
         return result.joined(separator: "\n")
+    }
+
+    /// Processes backspace characters by deleting the previous character.
+    private static func processBackspaces(_ text: String) -> String {
+        var chars: [Character] = []
+
+        for char in text {
+            if char == "\u{08}" {
+                // Backspace: remove the last character if any
+                if !chars.isEmpty {
+                    chars.removeLast()
+                }
+            } else {
+                chars.append(char)
+            }
+        }
+
+        return String(chars)
     }
 }
