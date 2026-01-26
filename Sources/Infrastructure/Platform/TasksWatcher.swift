@@ -87,8 +87,9 @@ public final class TasksWatcher {
                     continue
                 }
 
+                let (customName, customDesc) = ScriptTask.parseMetadata(from: fullPath)
                 let inputs = ScriptTask.parseInputs(from: fullPath)
-                let task = ScriptTask(scriptPath: fullPath, inputs: inputs)
+                let task = ScriptTask(scriptPath: fullPath, name: customName, description: customDesc, inputs: inputs)
                 tasks.append(task)
                 AppLog.debug("Discovered task: \(task.name) with \(inputs.count) inputs", category: .tasks)
             }

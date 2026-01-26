@@ -15,6 +15,8 @@ struct SettingsView: View {
     @State private var kubeconfigPath: String = ""
     @State private var kubectlPath: String = ""
     @State private var tasksDirectory: String = ""
+    @State private var pathsSaved: Bool = false
+    @State private var taskSettingsSaved: Bool = false
 
     private var defaultKubeconfig: String {
         NSHomeDirectory() + "/.kube/config"
@@ -67,6 +69,14 @@ struct SettingsView: View {
 
                 HStack {
                     Spacer()
+                    if pathsSaved {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Saved")
+                        }
+                        .foregroundStyle(.green)
+                        .font(.caption)
+                    }
                     Button("Save") {
                         savePaths()
                     }
@@ -96,21 +106,6 @@ struct SettingsView: View {
                     }
             }
 
-            Section("Startup") {
-                Toggle("Launch at Login", isOn: $state.settings.launchAtLogin)
-                    .onChange(of: state.settings.launchAtLogin) {
-                        appState.saveToDisk()
-                    }
-
-                Toggle("Check for updates", isOn: $state.settings.autoupdate)
-                    .onChange(of: state.settings.autoupdate) {
-                        #if ENABLE_SPARKLE
-                        sparkleUpdater?.automaticallyChecksForUpdates = state.settings.autoupdate
-                        #endif
-                        appState.saveToDisk()
-                    }
-            }
-
             Section("Task Runner") {
                 VStack(alignment: .trailing, spacing: 2) {
                     TextField("Tasks directory", text: $tasksDirectory)
@@ -126,6 +121,14 @@ struct SettingsView: View {
 
                 HStack {
                     Spacer()
+                    if taskSettingsSaved {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Saved")
+                        }
+                        .foregroundStyle(.green)
+                        .font(.caption)
+                    }
                     Button("Save") {
                         saveTaskSettings()
                     }
@@ -134,6 +137,21 @@ struct SettingsView: View {
             }
             .onAppear {
                 loadTaskSettings()
+            }
+
+            Section("Startup") {
+                Toggle("Launch at Login", isOn: $state.settings.launchAtLogin)
+                    .onChange(of: state.settings.launchAtLogin) {
+                        appState.saveToDisk()
+                    }
+
+                Toggle("Check for updates", isOn: $state.settings.autoupdate)
+                    .onChange(of: state.settings.autoupdate) {
+                        #if ENABLE_SPARKLE
+                        sparkleUpdater?.automaticallyChecksForUpdates = state.settings.autoupdate
+                        #endif
+                        appState.saveToDisk()
+                    }
             }
         }
         .formStyle(.grouped)
@@ -156,6 +174,12 @@ struct SettingsView: View {
         appState.settings.kubectlPath = kubectlPath.isEmpty ? nil : kubectlPath
         appState.saveToDisk()
         appState.startBackgroundRefresh()
+
+        withAnimation { pathsSaved = true }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { pathsSaved = false }
+        }
     }
 
     @ViewBuilder
@@ -206,6 +230,13 @@ struct SettingsView: View {
     private func saveTaskSettings() {
         appState.settings.tasksDirectory = tasksDirectory.isEmpty ? nil : tasksDirectory
         appState.saveToDisk()
+        appState.setupTasksWatcher()
+
+        withAnimation { taskSettingsSaved = true }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { taskSettingsSaved = false }
+        }
     }
 
     @ViewBuilder

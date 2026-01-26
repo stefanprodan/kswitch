@@ -49,21 +49,25 @@ public struct Cluster: Identifiable, Codable, Hashable, Sendable {
 }
 
 extension [Cluster] {
-    /// Sorts clusters: favorites first, then non-favorites, then hidden. Each group sorted alphabetically.
+    /// Sorts clusters: favorites first, then non-favorites, then hidden, then removed. Each group sorted alphabetically.
     public func sortedByFavorites() -> [Cluster] {
         let favorites = self
-            .filter { $0.isFavorite && !$0.isHidden }
+            .filter { $0.isFavorite && !$0.isHidden && $0.isInKubeconfig }
             .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
 
         let nonFavorites = self
-            .filter { !$0.isFavorite && !$0.isHidden }
+            .filter { !$0.isFavorite && !$0.isHidden && $0.isInKubeconfig }
             .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
 
         let hidden = self
-            .filter { $0.isHidden }
+            .filter { $0.isHidden && $0.isInKubeconfig }
             .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
 
-        return favorites + nonFavorites + hidden
+        let removed = self
+            .filter { !$0.isInKubeconfig }
+            .sorted { $0.effectiveName.localizedCaseInsensitiveCompare($1.effectiveName) == .orderedAscending }
+
+        return favorites + nonFavorites + hidden + removed
     }
 
     /// Syncs clusters with context names from kubeconfig.

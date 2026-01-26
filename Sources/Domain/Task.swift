@@ -26,8 +26,11 @@ public struct ScriptTask: Identifiable, Hashable, Sendable {
     /// Unique identifier (script path).
     public let id: String
 
-    /// Display name derived from filename.
+    /// Display name (from KSWITCH_TASK comment or derived from filename).
     public var name: String
+
+    /// Task description (from KSWITCH_TASK_DESC comment or falls back to script path).
+    public var description: String
 
     /// Full path to the script.
     public var scriptPath: String
@@ -35,10 +38,11 @@ public struct ScriptTask: Identifiable, Hashable, Sendable {
     /// Parsed input definitions from script headers.
     public var inputs: [TaskInput]
 
-    public init(scriptPath: String, inputs: [TaskInput] = []) {
+    public init(scriptPath: String, name: String? = nil, description: String? = nil, inputs: [TaskInput] = []) {
         self.id = scriptPath
         self.scriptPath = scriptPath
-        self.name = Self.displayName(from: scriptPath)
+        self.name = name ?? Self.displayName(from: scriptPath)
+        self.description = description ?? scriptPath
         self.inputs = inputs
     }
 
@@ -52,7 +56,54 @@ public struct ScriptTask: Identifiable, Hashable, Sendable {
             .replacingOccurrences(of: "_", with: " ")
     }
 
-    /// Parses KSWITCH_INPUT comments from script header (first 50 lines).
+    /// Parses KSWITCH_TASK and KSWITCH_TASK_DESC comments from script header (first 100 lines).
+    /// Format: # KSWITCH_TASK: Task Name
+    /// Format: # KSWITCH_TASK_DESC: Task description text.
+    public static func parseMetadata(from scriptPath: String) -> (name: String?, description: String?) {
+        guard let content = try? String(contentsOfFile: scriptPath, encoding: .utf8) else {
+            return (nil, nil)
+        }
+
+        var name: String?
+        var description: String?
+        let lines = content.components(separatedBy: .newlines).prefix(100)
+
+        // Regex patterns for task name and description
+        // Matches: # KSWITCH_TASK: Task Name
+        let namePattern = #"#\s*KSWITCH_TASK:\s*(.+)"#
+        // Matches: # KSWITCH_TASK_DESC: Description text
+        let descPattern = #"#\s*KSWITCH_TASK_DESC:\s*(.+)"#
+
+        let nameRegex = try? NSRegularExpression(pattern: namePattern)
+        let descRegex = try? NSRegularExpression(pattern: descPattern)
+
+        for line in lines {
+            let range = NSRange(line.startIndex..., in: line)
+
+            // Check for task name
+            if name == nil, let match = nameRegex?.firstMatch(in: line, range: range) {
+                if let valueRange = Range(match.range(at: 1), in: line) {
+                    name = String(line[valueRange]).trimmingCharacters(in: .whitespaces)
+                }
+            }
+
+            // Check for task description
+            if description == nil, let match = descRegex?.firstMatch(in: line, range: range) {
+                if let valueRange = Range(match.range(at: 1), in: line) {
+                    description = String(line[valueRange]).trimmingCharacters(in: .whitespaces)
+                }
+            }
+
+            // Early exit if both found
+            if name != nil && description != nil {
+                break
+            }
+        }
+
+        return (name, description)
+    }
+
+    /// Parses KSWITCH_INPUT comments from script header (first 100 lines).
     /// Format: # KSWITCH_INPUT: VAR_NAME "Description"
     /// Format: # KSWITCH_INPUT_OPT: VAR_NAME "Description"
     public static func parseInputs(from scriptPath: String) -> [TaskInput] {
@@ -61,7 +112,7 @@ public struct ScriptTask: Identifiable, Hashable, Sendable {
         }
 
         var inputs: [TaskInput] = []
-        let lines = content.components(separatedBy: .newlines).prefix(50)
+        let lines = content.components(separatedBy: .newlines).prefix(100)
 
         // Regex patterns for required and optional inputs
         // Matches: # KSWITCH_INPUT: VAR_NAME "Description" or # KSWITCH_INPUT: VAR_NAME

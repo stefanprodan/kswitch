@@ -104,16 +104,24 @@ struct ClustersListView: View {
                   systemImage: cluster.isFavorite ? "star.slash" : "star")
         }
 
-        Button {
-            var updated = cluster
-            updated.isHidden.toggle()
-            appState.updateCluster(updated)
-            if !updated.isHidden {
-                Task { await appState.refreshStatus(for: cluster.contextName) }
+        if cluster.isInKubeconfig {
+            Button {
+                var updated = cluster
+                updated.isHidden.toggle()
+                appState.updateCluster(updated)
+                if !updated.isHidden {
+                    Task { await appState.refreshStatus(for: cluster.contextName) }
+                }
+            } label: {
+                Label(cluster.isHidden ? "Unhide" : "Hide",
+                      systemImage: cluster.isHidden ? "eye" : "eye.slash")
             }
-        } label: {
-            Label(cluster.isHidden ? "Unhide" : "Hide",
-                  systemImage: cluster.isHidden ? "eye" : "eye.slash")
+        } else {
+            Button(role: .destructive) {
+                appState.deleteCluster(cluster)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
         }
     }
 }

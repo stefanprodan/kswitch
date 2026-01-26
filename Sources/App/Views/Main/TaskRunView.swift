@@ -48,8 +48,16 @@ struct TaskRunView: View {
 
             Divider()
 
-            // Inputs and run button
-            actionSection
+            // Inputs (if any)
+            if !currentTask.inputs.isEmpty {
+                inputsSection
+                    .padding()
+
+                Divider()
+            }
+
+            // Run button
+            runSection
                 .padding()
 
             Divider()
@@ -90,6 +98,14 @@ struct TaskRunView: View {
                 inputValues = run.inputValues
             }
         }
+        .onChange(of: task.id) {
+            // Reset input values when switching to a different task
+            inputValues = [:]
+            // Restore from last run if available
+            if let run = appState.taskRun(for: currentTask) {
+                inputValues = run.inputValues
+            }
+        }
     }
 
     // MARK: - Header Section
@@ -116,7 +132,7 @@ struct TaskRunView: View {
                     }
                 }
 
-                Text(currentTask.scriptPath)
+                Text(currentTask.description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -154,14 +170,13 @@ struct TaskRunView: View {
         return "\(status) in \(run.formattedDuration)"
     }
 
-    // MARK: - Action Section
+    // MARK: - Inputs Section
 
-    private var actionSection: some View {
+    private var inputsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Inputs (if any)
             ForEach(currentTask.inputs, id: \.name) { input in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 4) {
+                HStack(spacing: 8) {
+                    HStack(spacing: 2) {
                         Text(input.name)
                             .font(.system(size: 12, weight: .medium, design: .monospaced))
                         if input.isRequired {
@@ -169,48 +184,46 @@ struct TaskRunView: View {
                                 .foregroundStyle(.red)
                         }
                     }
+                    .frame(minWidth: 120, alignment: .leading)
 
-                    if !input.description.isEmpty {
-                        Text(input.description)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    TextField(input.isRequired ? "Required" : "Optional", text: inputBinding(for: input.name))
+                    TextField(input.description.isEmpty ? (input.isRequired ? "Required" : "Optional") : input.description, text: inputBinding(for: input.name))
                         .textFieldStyle(.roundedBorder)
                         .disabled(isRunning)
                 }
             }
+        }
+    }
 
-            // Run/Stop button and status
-            HStack {
-                if isRunning {
-                    Button {
-                        Task { await appState.stopTask(currentTask) }
-                    } label: {
-                        Label("Stop", systemImage: "stop.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                } else {
-                    Button {
-                        Task { await appState.runTask(currentTask, inputValues: inputValues) }
-                    } label: {
-                        Label("Run", systemImage: "play.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canRun)
+    // MARK: - Run Section
+
+    private var runSection: some View {
+        HStack {
+            if isRunning {
+                Button {
+                    Task { await appState.stopTask(currentTask) }
+                } label: {
+                    Label("Stop", systemImage: "stop.fill")
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+            } else {
+                Button {
+                    Task { await appState.runTask(currentTask, inputValues: inputValues) }
+                } label: {
+                    Label("Run", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!canRun)
+            }
 
-                Spacer()
+            Spacer()
 
-                if let run = lastRun {
-                    HStack(spacing: 8) {
-                        statusIndicator(for: run)
-                        Text(lastRunText(run))
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
+            if let run = lastRun {
+                HStack(spacing: 8) {
+                    statusIndicator(for: run)
+                    Text(lastRunText(run))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                 }
             }
         }

@@ -104,11 +104,15 @@ struct TaskRowView: View {
 
     private var statusText: String {
         if isRunning {
-            return "Running..."
+            let timeout = appState.settings.taskTimeoutMinutes
+            return "Running with a timeout of \(timeout) min"
         }
         guard let run = lastRun else {
             return "Never run"
         }
-        return "Completed in \(run.formattedDuration)"
+        let timeFormatter = DateFormatter()
+        timeFormatter.timeStyle = .short
+        let timeString = timeFormatter.string(from: run.timestamp)
+        return "Completed in \(run.formattedDuration) at \(timeString)"
     }
 }

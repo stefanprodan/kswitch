@@ -73,6 +73,9 @@ struct ClusterRowView: View {
     }
 
     private var statusLabel: String {
+        if !cluster.isInKubeconfig {
+            return "Removed"
+        }
         if cluster.isHidden {
             return "Hidden"
         }
@@ -80,6 +83,9 @@ struct ClusterRowView: View {
     }
 
     private var statusColor: Color {
+        if !cluster.isInKubeconfig {
+            return .red
+        }
         if cluster.isHidden {
             return .gray
         }
@@ -89,6 +95,9 @@ struct ClusterRowView: View {
     // MARK: - Info Text
 
     private var kubernetesText: String {
+        if !cluster.isInKubeconfig {
+            return "Cluster not found in kubeconfig"
+        }
         if cluster.isHidden {
             return "Status check paused"
         }
@@ -96,7 +105,7 @@ struct ClusterRowView: View {
     }
 
     private var fluxText: String {
-        if cluster.isHidden {
+        if !cluster.isInKubeconfig || cluster.isHidden {
             return ""
         }
         return status?.fluxInfo ?? "Flux Operator status unknown"
