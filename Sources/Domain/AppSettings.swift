@@ -11,13 +11,21 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var notificationsEnabled: Bool
     public var autoupdate: Bool
 
+    // Task Runner settings
+    public var taskShellPath: String?
+    public var tasksDirectory: String?
+    public var taskTimeoutMinutes: Int
+
     public static let `default` = AppSettings(
         kubeconfigPaths: [],
         kubectlPath: nil,
         refreshIntervalSeconds: 30,
         launchAtLogin: false,
         notificationsEnabled: true,
-        autoupdate: true
+        autoupdate: true,
+        taskShellPath: nil,
+        tasksDirectory: nil,
+        taskTimeoutMinutes: 5
     )
 
     public init(
@@ -26,7 +34,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
         refreshIntervalSeconds: Int,
         launchAtLogin: Bool,
         notificationsEnabled: Bool,
-        autoupdate: Bool
+        autoupdate: Bool,
+        taskShellPath: String? = nil,
+        tasksDirectory: String? = nil,
+        taskTimeoutMinutes: Int = 5
     ) {
         self.kubeconfigPaths = kubeconfigPaths
         self.kubectlPath = kubectlPath
@@ -34,6 +45,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.launchAtLogin = launchAtLogin
         self.notificationsEnabled = notificationsEnabled
         self.autoupdate = autoupdate
+        self.taskShellPath = taskShellPath
+        self.tasksDirectory = tasksDirectory
+        self.taskTimeoutMinutes = taskTimeoutMinutes
     }
 
     public var effectiveKubeconfigPaths: [String] {
@@ -42,5 +56,17 @@ public struct AppSettings: Codable, Equatable, Sendable {
         }
         // Default to ~/.kube/config
         return [NSHomeDirectory() + "/.kube/config"]
+    }
+
+    /// Returns the tasks directory path, expanding ~ to home directory.
+    /// Returns nil if no tasks directory is configured.
+    public var effectiveTasksDirectory: String? {
+        guard let dir = tasksDirectory, !dir.isEmpty else {
+            return nil
+        }
+        if dir.hasPrefix("~") {
+            return NSHomeDirectory() + dir.dropFirst()
+        }
+        return dir
     }
 }

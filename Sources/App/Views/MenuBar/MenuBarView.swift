@@ -14,8 +14,20 @@ struct MenuBarView: View {
     @Environment(\.sparkleUpdater) private var sparkleUpdater
     #endif
 
+    @State private var isTaskSearching: Bool = false
+    @State private var taskSearchText: String = ""
+
     private var needsSetup: Bool {
         appState.error != nil
+    }
+
+    private var filteredTasks: [ScriptTask] {
+        if taskSearchText.isEmpty {
+            return appState.tasks
+        }
+        return appState.tasks.filter {
+            $0.name.localizedCaseInsensitiveContains(taskSearchText)
+        }
     }
 
     var body: some View {
@@ -53,6 +65,16 @@ struct MenuBarView: View {
             // Cluster list (scrollable)
             clusterListSection
                 .padding(.vertical, 12)
+
+            // Tasks section (hidden if no tasks)
+            if !appState.tasks.isEmpty {
+                Divider()
+                    .padding(.horizontal, 16)
+
+                tasksSection
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
 
             #if ENABLE_SPARKLE
             if sparkleUpdater?.isUpdateAvailable == true {
@@ -241,12 +263,12 @@ struct MenuBarView: View {
             VStack(spacing: 2) {
                 // Favorites first
                 ForEach(favorites) { cluster in
-                    clusterRow(cluster: cluster)
+                    MenuBarClusterRow(cluster: cluster)
                 }
 
                 // Then non-favorites
                 ForEach(nonFavorites) { cluster in
-                    clusterRow(cluster: cluster)
+                    MenuBarClusterRow(cluster: cluster)
                 }
 
                 // Removed clusters (grayed out)
@@ -254,7 +276,7 @@ struct MenuBarView: View {
                     Divider()
                         .padding(.vertical, 4)
                     ForEach(removedClusters) { cluster in
-                        clusterRow(cluster: cluster)
+                        MenuBarClusterRow(cluster: cluster)
                             .opacity(0.5)
                             .disabled(true)
                     }
@@ -262,49 +284,49 @@ struct MenuBarView: View {
             }
             .padding(.horizontal, 16)
         }
-        .frame(maxHeight: 200)
+        .frame(maxHeight: 165)
     }
 
-    @ViewBuilder
-    private func clusterRow(cluster: Cluster) -> some View {
-        Button {
-            Task { await appState.switchContext(to: cluster.contextName) }
-        } label: {
-            HStack(spacing: 8) {
-                // Star indicator
-                Text(cluster.isFavorite ? "★" : "☆")
-                    .font(.system(size: 12))
-                    .foregroundStyle(cluster.isFavorite ? .yellow : .secondary)
+    // MARK: - Tasks Section
 
-                // Cluster name with ellipsis for long names
-                Text(cluster.effectiveName)
-                    .font(.system(size: 13))
-                    .foregroundStyle(colorScheme == .dark ? .white : .black)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+    private var tasksSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                if isTaskSearching {
+                    MenuBarTaskSearchField(text: $taskSearchText)
+                } else {
+                    Text(appState.tasks.count > 3 ? "Tasks (\(appState.tasks.count))" : "Tasks")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
-                // Checkmark for current context
-                if cluster.contextName == appState.currentContext {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.blue)
+                Button {
+                    isTaskSearching.toggle()
+                    if !isTaskSearching {
+                        taskSearchText = ""
+                    }
+                } label: {
+                    Image(systemName: isTaskSearching ? "xmark.circle.fill" : "magnifyingglass")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(height: 16)
+            .padding(.horizontal, 8)
+
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 4) {
+                    ForEach(filteredTasks) { task in
+                        MenuBarTaskRow(task: task)
+                    }
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(cluster.contextName == appState.currentContext
-                        ? (colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
-                        : Color.clear)
-            )
+            .frame(height: isTaskSearching ? 100 : nil, alignment: .top)
+            .frame(maxHeight: 100)
         }
-        .buttonStyle(.plain)
-        .help(cluster.contextName)
     }
 
     // MARK: - Update Section
@@ -350,7 +372,7 @@ struct MenuBarView: View {
 
     private var actionBar: some View {
         HStack(spacing: 8) {
-            // Open main window
+            // Open main window (icon + text)
             actionButton(icon: "macwindow", label: "Open") {
                 dismiss()
                 openWindow(id: "main")
@@ -358,15 +380,24 @@ struct MenuBarView: View {
             }
             .keyboardShortcut("o", modifiers: .command)
 
-            // Refresh
+            Spacer()
+
+            // Settings (icon only)
+            iconButton(icon: "gearshape", tooltip: "Settings") {
+                appState.pendingSettingsNavigation = true
+                dismiss()
+                openWindow(id: "main")
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+            .keyboardShortcut(",", modifiers: .command)
+
+            // Refresh (icon only)
             refreshButton
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(isCurrentClusterRefreshing)
 
-            Spacer()
-
-            // Quit
-            actionButton(icon: "power", label: "Quit") {
+            // Quit (icon only)
+            iconButton(icon: "power", tooltip: "Quit") {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q", modifiers: .command)
@@ -383,30 +414,25 @@ struct MenuBarView: View {
                 await appState.refreshStatus(for: appState.currentContext)
             }
         } label: {
-            HStack(spacing: 4) {
-                Group {
-                    if isCurrentClusterRefreshing {
-                        ProgressView()
-                            .scaleEffect(0.45)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 11))
-                    }
+            ZStack {
+                if isCurrentClusterRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.7)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11))
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
                 }
-                .frame(width: 11, height: 11)
-
-                Text(isCurrentClusterRefreshing ? "Syncing" : "Refresh")
-                    .font(.system(size: 11, weight: .medium))
             }
-            .foregroundStyle(colorScheme == .dark ? .white : .black)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .frame(width: 28, height: 28)
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
             )
         }
         .buttonStyle(.plain)
+        .help(isCurrentClusterRefreshing ? "Syncing..." : "Refresh")
     }
 
     @ViewBuilder
@@ -427,6 +453,22 @@ struct MenuBarView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func iconButton(icon: String, tooltip: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
+                )
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
     }
 
     // MARK: - Info Helpers

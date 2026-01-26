@@ -14,6 +14,9 @@ struct SettingsView: View {
     #endif
     @State private var kubeconfigPath: String = ""
     @State private var kubectlPath: String = ""
+    @State private var tasksDirectory: String = ""
+    @State private var pathsSaved: Bool = false
+    @State private var taskSettingsSaved: Bool = false
 
     private var defaultKubeconfig: String {
         NSHomeDirectory() + "/.kube/config"
@@ -36,6 +39,18 @@ struct SettingsView: View {
         FileManager.default.fileExists(atPath: kubectlPath)
     }
 
+    private var expandedTasksDirectory: String {
+        if tasksDirectory.hasPrefix("~") {
+            return NSHomeDirectory() + tasksDirectory.dropFirst()
+        }
+        return tasksDirectory
+    }
+
+    private var isTasksDirectoryValid: Bool {
+        !tasksDirectory.isEmpty &&
+        FileManager.default.fileExists(atPath: expandedTasksDirectory)
+    }
+
     var body: some View {
         @Bindable var state = appState
 
@@ -54,6 +69,14 @@ struct SettingsView: View {
 
                 HStack {
                     Spacer()
+                    if pathsSaved {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Saved")
+                        }
+                        .foregroundStyle(.green)
+                        .font(.caption)
+                    }
                     Button("Save") {
                         savePaths()
                     }
@@ -81,6 +104,39 @@ struct SettingsView: View {
                     .onChange(of: state.settings.notificationsEnabled) {
                         appState.saveToDisk()
                     }
+            }
+
+            Section("Task Runner") {
+                VStack(alignment: .trailing, spacing: 2) {
+                    TextField("Tasks directory", text: $tasksDirectory)
+                        .help("Directory containing *.kswitch.sh scripts (e.g. ~/.kswitch/tasks)")
+                    tasksDirectoryStatus
+                }
+
+                Stepper("Timeout: \(state.settings.taskTimeoutMinutes) min",
+                        value: $state.settings.taskTimeoutMinutes, in: 1...60)
+                    .onChange(of: state.settings.taskTimeoutMinutes) {
+                        appState.saveToDisk()
+                    }
+
+                HStack {
+                    Spacer()
+                    if taskSettingsSaved {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Saved")
+                        }
+                        .foregroundStyle(.green)
+                        .font(.caption)
+                    }
+                    Button("Save") {
+                        saveTaskSettings()
+                    }
+                    .disabled(!isTasksDirectoryValid && !tasksDirectory.isEmpty)
+                }
+            }
+            .onAppear {
+                loadTaskSettings()
             }
 
             Section("Startup") {
@@ -118,6 +174,12 @@ struct SettingsView: View {
         appState.settings.kubectlPath = kubectlPath.isEmpty ? nil : kubectlPath
         appState.saveToDisk()
         appState.startBackgroundRefresh()
+
+        withAnimation { pathsSaved = true }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { pathsSaved = false }
+        }
     }
 
     @ViewBuilder
@@ -154,6 +216,41 @@ struct SettingsView: View {
                 .foregroundStyle(.green)
         } else {
             Text("⚠ Not found")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
+    }
+
+    // MARK: - Task Runner Settings
+
+    private func loadTaskSettings() {
+        tasksDirectory = appState.settings.tasksDirectory ?? ""
+    }
+
+    private func saveTaskSettings() {
+        appState.settings.tasksDirectory = tasksDirectory.isEmpty ? nil : tasksDirectory
+        appState.saveToDisk()
+        appState.setupTasksWatcher()
+
+        withAnimation { taskSettingsSaved = true }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { taskSettingsSaved = false }
+        }
+    }
+
+    @ViewBuilder
+    private var tasksDirectoryStatus: some View {
+        if tasksDirectory.isEmpty {
+            Text("Not configured")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else if isTasksDirectoryValid {
+            Text("✓ Valid")
+                .font(.caption)
+                .foregroundStyle(.green)
+        } else {
+            Text("⚠ Directory not found")
                 .font(.caption)
                 .foregroundStyle(.orange)
         }

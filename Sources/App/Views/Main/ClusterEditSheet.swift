@@ -35,7 +35,7 @@ struct ClusterEditSheet: View {
 
             Form {
                 Section("Display") {
-                    TextField("Display Name", text: $displayName, prompt: Text(cluster.contextName))
+                    TextField("Display Name", text: $displayName)
 
                     ColorPickerGrid(selectedColor: $selectedColor)
                 }
@@ -50,7 +50,8 @@ struct ClusterEditSheet: View {
         }
         .frame(width: 400, height: 350)
         .onAppear {
-            displayName = cluster.displayName ?? ""
+            // Prefill with effectiveName so users can edit instead of typing from scratch
+            displayName = cluster.effectiveName
             selectedColor = cluster.colorHex
             isFavorite = cluster.isFavorite
             isHidden = cluster.isHidden
@@ -60,7 +61,9 @@ struct ClusterEditSheet: View {
     private func save() {
         let wasHidden = cluster.isHidden
         var updated = cluster
-        updated.displayName = displayName.isEmpty ? nil : displayName
+        // Save nil if empty or same as context name (use default)
+        let trimmed = displayName.trimmingCharacters(in: .whitespaces)
+        updated.displayName = (trimmed.isEmpty || trimmed == cluster.contextName) ? nil : trimmed
         updated.colorHex = selectedColor
         updated.isFavorite = isFavorite
         updated.isHidden = isHidden

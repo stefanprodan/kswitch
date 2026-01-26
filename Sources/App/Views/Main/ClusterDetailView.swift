@@ -7,6 +7,7 @@ import Infrastructure
 
 struct ClusterDetailView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
     let cluster: Cluster
     @State private var showingEditSheet = false
 
@@ -44,23 +45,21 @@ struct ClusterDetailView: View {
         }
         .navigationTitle("Cluster")
         .toolbar {
-            ToolbarItem(id: "detail-flexible-space") {
-                Spacer()
-            }
-
-            if !cluster.isInKubeconfig {
-                ToolbarItem {
-                    Button {
-                        appState.deleteCluster(cluster)
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Delete cluster from saved list")
+            // Delete button - only shown for clusters not in kubeconfig
+            ToolbarItem(id: "detail-delete", placement: .automatic) {
+                Button {
+                    appState.deleteCluster(cluster)
+                    dismiss()
+                } label: {
+                    Image(systemName: "trash")
                 }
+                .buttonStyle(.borderless)
+                .opacity(cluster.isInKubeconfig ? 0 : 1)
+                .disabled(cluster.isInKubeconfig)
+                .help("Delete cluster from saved list")
             }
 
-            ToolbarItem {
+            ToolbarItem(id: "detail-edit", placement: .automatic) {
                 Button {
                     showingEditSheet = true
                 } label: {
@@ -70,17 +69,20 @@ struct ClusterDetailView: View {
                 .help("Edit cluster")
             }
 
-            ToolbarItem {
+            ToolbarItem(id: "detail-refresh", placement: .automatic) {
                 Button {
                     Task { await appState.refreshStatus(for: cluster.contextName) }
                 } label: {
-                    if appState.refreshingContexts.contains(cluster.contextName) {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                            .frame(width: 16, height: 16)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
+                    // Use consistent view type to avoid toolbar layout thrashing
+                    Image(systemName: "arrow.clockwise")
+                        .opacity(appState.refreshingContexts.contains(cluster.contextName) ? 0 : 1)
+                        .overlay {
+                            if appState.refreshingContexts.contains(cluster.contextName) {
+                                ProgressView()
+                                    .scaleEffect(0.5)
+                            }
+                        }
+                        .frame(width: 16, height: 16)
                 }
                 .buttonStyle(.borderless)
                 .disabled(!cluster.isInKubeconfig || appState.refreshingContexts.contains(cluster.contextName))

@@ -82,7 +82,8 @@ import Foundation
             "refreshIntervalSeconds": 15,
             "launchAtLogin": true,
             "notificationsEnabled": true,
-            "autoupdate": false
+            "autoupdate": false,
+            "taskTimeoutMinutes": 10
         }
         """
 
@@ -95,6 +96,7 @@ import Foundation
         #expect(settings.launchAtLogin == true)
         #expect(settings.notificationsEnabled == true)
         #expect(settings.autoupdate == false)
+        #expect(settings.taskTimeoutMinutes == 10)
     }
 
     @Test func settingsEncodesToExpectedKeys() throws {

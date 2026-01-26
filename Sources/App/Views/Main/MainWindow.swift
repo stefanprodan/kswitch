@@ -11,6 +11,7 @@ struct MainWindow: View {
     @State private var selectedItem: SidebarItem? = .clusters
     @State private var navigationPath = NavigationPath()
     @State private var isSearching: Bool = false
+    @State private var isProgrammaticNavigation: Bool = false
 
     var body: some View {
         NavigationSplitView {
@@ -21,58 +22,64 @@ struct MainWindow: View {
                     .navigationDestination(for: Cluster.self) { cluster in
                         ClusterDetailView(cluster: cluster)
                     }
+                    .navigationDestination(for: ScriptTask.self) { task in
+                        TaskRunView(task: task)
+                    }
             }
             .toolbar {
-                ToolbarItem {
-                    if !navigationPath.isEmpty {
-                        Button(action: { goBack() }) {
-                            Image(systemName: "chevron.left")
+                ToolbarItem(id: "main-back", placement: .navigation) {
+                    Button(action: { goBack() }) {
+                        Image(systemName: "chevron.left")
+                    }
+                    .opacity(navigationPath.isEmpty ? 0 : 1)
+                    .disabled(navigationPath.isEmpty)
+                }
+
+                ToolbarItem(id: "main-search-field", placement: .automatic) {
+                    FocusableTextField(
+                        placeholder: selectedItem == .clusters ? "Search clusters" : "Search tasks",
+                        text: $searchText,
+                        isFocused: isSearching
+                    )
+                    .frame(width: 180)
+                    .onExitCommand {
+                        isSearching = false
+                        searchText = ""
+                    }
+                    .opacity((selectedItem == .clusters || selectedItem == .tasks) && isSearching ? 1 : 0)
+                    .frame(width: (selectedItem == .clusters || selectedItem == .tasks) && isSearching ? 180 : 0)
+                }
+
+                ToolbarItem(id: "main-search-toggle", placement: .automatic) {
+                    Button(action: {
+                        isSearching.toggle()
+                        if !isSearching {
+                            searchText = ""
                         }
+                    }) {
+                        Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
                     }
+                    .buttonStyle(.borderless)
+                    .opacity(selectedItem == .clusters || selectedItem == .tasks ? 1 : 0)
+                    .disabled(!(selectedItem == .clusters || selectedItem == .tasks))
                 }
 
-                ToolbarItem(id: "flexible-space") {
-                    Spacer()
-                }
-
-                ToolbarItem {
-                    if selectedItem == .clusters && isSearching {
-                        TextField("Search clusters", text: $searchText)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 180)
-                            .onExitCommand {
-                                isSearching = false
-                                searchText = ""
-                            }
-                    }
-                }
-
-                ToolbarItem {
-                    if selectedItem == .clusters {
-                        Button(action: {
-                            isSearching.toggle()
-                            if !isSearching {
-                                searchText = ""
-                            }
-                        }) {
-                            Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                }
-
-                ToolbarItem {
-                    if selectedItem == .clusters {
+                // Only show refresh button for clusters section
+                if selectedItem == .clusters {
+                    ToolbarItem(id: "main-refresh", placement: .automatic) {
                         Button {
                             Task { await appState.refreshAllStatuses() }
                         } label: {
-                            if appState.isRefreshing {
-                                ProgressView()
-                                    .scaleEffect(0.5)
-                                    .frame(width: 16, height: 16)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                            }
+                            // Use consistent view type to avoid toolbar layout thrashing
+                            Image(systemName: "arrow.clockwise")
+                                .opacity(appState.isRefreshing ? 0 : 1)
+                                .overlay {
+                                    if appState.isRefreshing {
+                                        ProgressView()
+                                            .scaleEffect(0.5)
+                                    }
+                                }
+                                .frame(width: 16, height: 16)
                         }
                         .buttonStyle(.borderless)
                         .disabled(appState.isRefreshing)
@@ -85,26 +92,30 @@ struct MainWindow: View {
         .task {
             await appState.refreshAllStatuses()
         }
+        .onAppear {
+            // Handle pending navigation when window opens fresh
+            // (onChange doesn't fire for values already set before view appeared)
+            handlePendingNavigation()
+        }
         .onChange(of: selectedItem) {
-            // Clear search and navigation when switching sections
+            // Skip reset if this is a programmatic navigation
+            if isProgrammaticNavigation {
+                isProgrammaticNavigation = false
+                return
+            }
+            // Clear search and navigation when user manually switches sections
             isSearching = false
             searchText = ""
             navigationPath = NavigationPath()
         }
-        .task(id: appState.pendingClusterNavigation?.id) {
-            if let cluster = appState.pendingClusterNavigation {
-                appState.pendingClusterNavigation = nil
-                selectedItem = .clusters
-                navigationPath = NavigationPath()
-                navigationPath.append(cluster)
-            }
+        .onChange(of: appState.pendingClusterNavigation) {
+            handlePendingNavigation()
         }
         .onChange(of: appState.pendingSettingsNavigation) {
-            if appState.pendingSettingsNavigation {
-                appState.pendingSettingsNavigation = false
-                selectedItem = .settings
-                navigationPath = NavigationPath()
-            }
+            handlePendingNavigation()
+        }
+        .onChange(of: appState.pendingTaskNavigation) {
+            handlePendingNavigation()
         }
     }
 
@@ -114,6 +125,9 @@ struct MainWindow: View {
             SettingsView()
         } else if selectedItem == .about {
             AboutView()
+        } else if selectedItem == .tasks {
+            TasksListView(searchText: $searchText, navigationPath: $navigationPath)
+                .navigationTitle("Tasks")
         } else if let error = appState.error {
             errorStateView(message: error)
         } else if appState.clusters.isEmpty {
@@ -186,6 +200,96 @@ struct MainWindow: View {
     private func goBack() {
         if !navigationPath.isEmpty {
             navigationPath.removeLast()
+        }
+    }
+
+    private func handlePendingNavigation() {
+        if let cluster = appState.pendingClusterNavigation {
+            appState.pendingClusterNavigation = nil
+            if selectedItem != .clusters {
+                isProgrammaticNavigation = true
+                selectedItem = .clusters
+                // Delay path update until after view transition
+                DispatchQueue.main.async {
+                    navigationPath = NavigationPath()
+                    navigationPath.append(cluster)
+                }
+            } else {
+                navigationPath = NavigationPath()
+                navigationPath.append(cluster)
+            }
+        } else if appState.pendingSettingsNavigation {
+            appState.pendingSettingsNavigation = false
+            if selectedItem != .settings {
+                isProgrammaticNavigation = true
+                selectedItem = .settings
+            }
+            navigationPath = NavigationPath()
+        } else if let task = appState.pendingTaskNavigation {
+            appState.pendingTaskNavigation = nil
+            if selectedItem != .tasks {
+                isProgrammaticNavigation = true
+                selectedItem = .tasks
+                // Delay path update until after view transition
+                DispatchQueue.main.async {
+                    navigationPath = NavigationPath()
+                    navigationPath.append(task)
+                }
+            } else {
+                navigationPath = NavigationPath()
+                navigationPath.append(task)
+            }
+        }
+    }
+}
+
+// MARK: - Focusable TextField
+
+struct FocusableTextField: NSViewRepresentable {
+    let placeholder: String
+    @Binding var text: String
+    var isFocused: Bool
+
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = NSTextField()
+        textField.placeholderString = placeholder
+        textField.delegate = context.coordinator
+        textField.bezelStyle = .roundedBezel
+        textField.focusRingType = .exterior
+        return textField
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        // Only update text if it differs to avoid cursor jumping
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        nsView.placeholderString = placeholder
+
+        // Only focus once when first appearing
+        if isFocused && !context.coordinator.hasFocused {
+            context.coordinator.hasFocused = true
+            DispatchQueue.main.async {
+                nsView.window?.makeFirstResponder(nsView)
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: FocusableTextField
+        var hasFocused = false
+
+        init(_ parent: FocusableTextField) {
+            self.parent = parent
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let textField = notification.object as? NSTextField else { return }
+            parent.text = textField.stringValue
         }
     }
 }

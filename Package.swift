@@ -88,5 +88,16 @@ let package = Package(
                 .define("MOCKING"),
             ]
         ),
+        .testTarget(
+            name: "AppTests",
+            dependencies: [
+                "KSwitch",
+            ],
+            path: "Tests/AppTests",
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency"),
+                .enableExperimentalFeature("Testing"),
+            ]
+        ),
     ]
 )

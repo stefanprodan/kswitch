@@ -7,12 +7,14 @@ import Infrastructure
 
 enum SidebarItem: String, Hashable, CaseIterable {
     case clusters
+    case tasks
     case settings
     case about
 
     var title: String {
         switch self {
         case .clusters: return "Clusters"
+        case .tasks: return "Tasks"
         case .settings: return "Settings"
         case .about: return "About"
         }
@@ -28,6 +30,10 @@ struct Sidebar: View {
             Label("Clusters", systemImage: "square.stack.3d.up")
                 .badge(appState.clusters.count)
                 .tag(SidebarItem.clusters)
+
+            Label("Tasks", systemImage: "terminal")
+                .badge(appState.tasks.count)
+                .tag(SidebarItem.tasks)
 
             Divider()
 

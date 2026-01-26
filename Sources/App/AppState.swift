@@ -23,6 +23,17 @@ final class AppState {
     var pendingSettingsNavigation: Bool = false
     var detectedKubectlPath: String?
 
+    // Task Runner state (in-memory only)
+    var tasks: [ScriptTask] = []
+    var taskRuns: [String: TaskRun] = [:]  // Keyed by script path
+    var runningTasks: Set<String> = []     // Script paths currently running
+    var pendingTaskNavigation: ScriptTask?
+    private var runningTaskIDs: [String: UUID] = [:]  // scriptPath -> runID
+
+    // Throttled output streaming
+    private let outputSubject = PassthroughSubject<(String, Data), Never>()
+    private var outputCancellable: AnyCancellable?
+
     // Background refresh
     private var refreshTask: Task<Void, Never>?
     private var isBackgroundRefreshEnabled: Bool = true
@@ -33,6 +44,12 @@ final class AppState {
 
     @ObservationIgnored
     private var _kubeconfigWatcher: KubeconfigWatcher?
+
+    @ObservationIgnored
+    private var _tasksWatcher: TasksWatcher?
+
+    @ObservationIgnored
+    private let _taskRunner = TaskRunner()
 
     private func getKubectl() async -> KubectlRunner {
         if let kubectl = _kubectl {
@@ -51,6 +68,9 @@ final class AppState {
 
         // Start watching kubeconfig for external changes
         setupKubeconfigWatcher()
+
+        // Start watching tasks directory if configured
+        setupTasksWatcher()
 
         // Initialize on launch
         Task { @MainActor [weak self] in
@@ -109,6 +129,7 @@ final class AppState {
     func saveToDisk() {
         AppStorage.shared.save(clusters: clusters, settings: settings)
         setupKubeconfigWatcher()
+        setupTasksWatcher()
     }
 
     // MARK: - Background Refresh
@@ -352,5 +373,170 @@ final class AppState {
 
     var currentClusterStatus: ClusterStatus? {
         clusterStatuses[currentContext]
+    }
+
+    // MARK: - Tasks Management
+
+    func setupTasksWatcher() {
+        _tasksWatcher?.stop()
+
+        guard let tasksDirectory = settings.effectiveTasksDirectory else {
+            tasks = []
+            return
+        }
+
+        _tasksWatcher = TasksWatcher(directoryPath: tasksDirectory) { [weak self] discoveredTasks in
+            self?.tasks = discoveredTasks
+        }
+        _tasksWatcher?.start()
+    }
+
+    private func startOutputThrottling() {
+        // Only start if not already running
+        guard outputCancellable == nil else { return }
+
+        // Collect output chunks for 100ms, then deliver the batch
+        outputCancellable = outputSubject
+            .collect(.byTime(DispatchQueue.main, .milliseconds(100)))
+            .sink { [weak self] batch in
+                guard let self = self, !batch.isEmpty else { return }
+
+                // Consolidate chunks by script path (handle multiple fast outputs)
+                var consolidated: [String: Data] = [:]
+                for (path, data) in batch {
+                    consolidated[path, default: Data()].append(data)
+                }
+
+                // Apply updates efficiently
+                for (path, data) in consolidated {
+                    self.appendTaskOutput(scriptPath: path, data: data)
+                }
+            }
+    }
+
+    private func stopOutputThrottling() {
+        outputCancellable?.cancel()
+        outputCancellable = nil
+    }
+
+    private func appendTaskOutput(scriptPath: String, data: Data) {
+        guard let existing = taskRuns[scriptPath] else { return }
+
+        // Don't append if task has already completed (exitCode != -1)
+        // The final result.output already contains the complete output
+        guard existing.exitCode == -1 else { return }
+
+        // Append data to the immutable struct (triggers View update)
+        var newOutput = existing.output
+        newOutput.append(data)
+
+        taskRuns[scriptPath] = TaskRun(
+            output: newOutput,
+            exitCode: existing.exitCode,
+            timestamp: existing.timestamp,
+            inputValues: existing.inputValues,
+            timedOut: existing.timedOut,
+            duration: existing.duration
+        )
+    }
+
+    /// Manually refreshes the task list by re-scanning the tasks directory.
+    func refreshTasks() {
+        guard let watcher = _tasksWatcher else {
+            AppLog.warning("No tasks watcher configured", category: .tasks)
+            return
+        }
+        let discovered = watcher.discoverTasks()
+        AppLog.info("Manual refresh: found \(discovered.count) tasks", category: .tasks)
+        tasks = discovered
+    }
+
+    /// Runs a task with the given input values.
+    func runTask(_ task: ScriptTask, inputValues: [String: String] = [:]) async {
+        let scriptPath = task.scriptPath
+        let startTime = Date()
+
+        // Start output throttling when first task begins
+        if runningTasks.isEmpty {
+            startOutputThrottling()
+        }
+        runningTasks.insert(scriptPath)
+
+        // Clear previous output when rerunning
+        taskRuns.removeValue(forKey: scriptPath)
+
+        let result = await _taskRunner.run(
+            task: task,
+            inputValues: inputValues,
+            timeoutMinutes: settings.taskTimeoutMinutes,
+            onStart: { [weak self] runID in
+                // Store runID immediately when process starts (before awaiting completion)
+                Task { @MainActor in
+                    self?.runningTaskIDs[scriptPath] = runID
+                }
+            },
+            onOutput: { [weak self] chunk in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+
+                    // Ensure TaskRun exists (immediate feedback)
+                    if self.taskRuns[scriptPath] == nil {
+                        self.taskRuns[scriptPath] = TaskRun(
+                            output: Data(),
+                            exitCode: -1,  // Still running
+                            timestamp: Date(),
+                            inputValues: inputValues,
+                            timedOut: false,
+                            duration: 0
+                        )
+                    }
+
+                    // Send chunk to the throttler (batched updates at 10 Hz)
+                    self.outputSubject.send((scriptPath, chunk))
+                }
+            }
+        )
+
+        let duration = Date().timeIntervalSince(startTime)
+        runningTasks.remove(scriptPath)
+        runningTaskIDs.removeValue(forKey: scriptPath)
+
+        // Stop output throttling when last task finishes
+        if runningTasks.isEmpty {
+            stopOutputThrottling()
+        }
+
+        taskRuns[scriptPath] = TaskRun(
+            output: result.output,
+            exitCode: result.exitCode,
+            timestamp: Date(),
+            inputValues: inputValues,
+            timedOut: result.timedOut,
+            duration: duration
+        )
+    }
+
+    /// Stops a running task.
+    func stopTask(_ task: ScriptTask) async {
+        if let runID = runningTaskIDs[task.scriptPath] {
+            await _taskRunner.stop(runID: runID)
+        }
+        runningTasks.remove(task.scriptPath)
+
+        // Stop output throttling when last task finishes
+        if runningTasks.isEmpty {
+            stopOutputThrottling()
+        }
+        runningTaskIDs.removeValue(forKey: task.scriptPath)
+    }
+
+    /// Returns whether a task is currently running.
+    func isTaskRunning(_ task: ScriptTask) -> Bool {
+        runningTasks.contains(task.scriptPath)
+    }
+
+    /// Returns the last run result for a task.
+    func taskRun(for task: ScriptTask) -> TaskRun? {
+        taskRuns[task.scriptPath]
     }
 }
