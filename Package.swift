@@ -12,7 +12,6 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.6.0"),
         .package(url: "https://github.com/Kolos65/Mockable.git", from: "0.5.0"),
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", revision: "8840e3596739adfe9599c0e7fff89f4fa88bedcf"),  // v1.9.0
     ],
     targets: [
         // Domain - pure business logic, protocols marked @Mockable
@@ -49,7 +48,6 @@ let package = Package(
                 "Domain",
                 "Infrastructure",
                 .product(name: "Sparkle", package: "Sparkle"),
-                .product(name: "SwiftTerm", package: "SwiftTerm"),
             ],
             path: "Sources/App",
             exclude: ["entitlements.plist"],

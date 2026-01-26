@@ -241,7 +241,7 @@ struct TaskRunView: View {
     private var outputSection: some View {
         Group {
             if let run = lastRun, !run.output.isEmpty {
-                TerminalOutputView(output: run.output)
+                TaskTerminalView(output: run.output, isStreaming: isRunning)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if isRunning {
                 VStack {

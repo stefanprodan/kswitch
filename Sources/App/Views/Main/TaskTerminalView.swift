@@ -1,0 +1,41 @@
+// Copyright 2026 Stefan Prodan.
+// SPDX-License-Identifier: Apache-2.0
+
+import SwiftUI
+
+/// A view that displays task output with ANSI colors parsed into styled text.
+/// Used for both real-time streaming and viewing historical task runs.
+struct TaskTerminalView: View {
+    let output: Data
+    var isStreaming: Bool = false
+
+    private var attributedText: AttributedString {
+        ANSIParser.parse(output)
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                Text(attributedText)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+
+                // Invisible anchor at the bottom
+                Color.clear
+                    .frame(height: 1)
+                    .id("bottom")
+            }
+            .background(Color(nsColor: .textBackgroundColor))
+            .onAppear {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
+            .onChange(of: output) {
+                // Auto-scroll to bottom when streaming new output
+                if isStreaming {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
+        }
+    }
+}
