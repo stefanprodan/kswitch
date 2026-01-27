@@ -51,3 +51,22 @@ struct MenuBarClusterRow: View {
         .help(cluster.contextName)
     }
 }
+
+// MARK: - Cluster Search Field
+
+struct MenuBarClusterSearchField: View {
+    @Binding var text: String
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField("Search clusters...", text: $text)
+            .textFieldStyle(.plain)
+            .font(.system(size: 11))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color(.textBackgroundColor).opacity(0.5))
+            .cornerRadius(4)
+            .focused($isFocused)
+            .onAppear { isFocused = true }
+    }
+}
