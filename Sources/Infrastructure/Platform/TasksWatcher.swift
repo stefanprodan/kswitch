@@ -24,18 +24,20 @@ public final class TasksWatcher {
         self.directoryPath = directoryPath
         self.pollInterval = pollInterval
         self.onChange = onChange
+
+        // Initial scan (returns empty array if directory doesn't exist)
+        let tasks = discoverTasks()
+        lastKnownState = getFileState(for: tasks)
+        if !tasks.isEmpty {
+            let expandedPath = expandPath(directoryPath)
+            AppLog.info("Discovered \(tasks.count) tasks at \(expandedPath)", category: .tasks)
+        }
+        onChange(tasks)
     }
 
     public func start() {
         stop()
 
-        // Initial scan (returns empty array if directory doesn't exist)
-        let tasks = discoverTasks()
-        lastKnownState = getFileState(for: tasks)
-        onChange(tasks)
-
-        // Start polling loop - runs even if directory doesn't exist yet
-        // This allows detecting when the directory is created later
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -54,13 +56,13 @@ public final class TasksWatcher {
             }
         }
 
-        let expandedPath = expandPath(directoryPath)
-        AppLog.info("Started polling tasks directory at \(expandedPath)", category: .tasks)
+        AppLog.debug("Started polling tasks directory", category: .tasks)
     }
 
     public func stop() {
         pollingTask?.cancel()
         pollingTask = nil
+        AppLog.debug("Stopped polling tasks directory", category: .tasks)
     }
 
     /// Scans the directory for executable `*.kswitch.sh` scripts.
@@ -91,11 +93,9 @@ public final class TasksWatcher {
                 let inputs = ScriptTask.parseInputs(from: fullPath)
                 let task = ScriptTask(scriptPath: fullPath, name: customName, description: customDesc, inputs: inputs)
                 tasks.append(task)
-                AppLog.debug("Discovered task: \(task.name) with \(inputs.count) inputs", category: .tasks)
             }
 
             tasks.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            AppLog.info("Discovered \(tasks.count) tasks", category: .tasks)
             return tasks
         } catch {
             AppLog.error("Failed to scan tasks directory: \(error)", category: .tasks)

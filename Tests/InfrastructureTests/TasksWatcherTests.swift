@@ -65,11 +65,12 @@ import Foundation
             discoveredTasks = tasks
             callCount += 1
         }
-        watcher.start()
 
-        // Initially empty (first callback happens synchronously in start())
+        // init triggers one synchronous callback
         #expect(discoveredTasks.isEmpty)
         #expect(callCount == 1)
+
+        watcher.start()
 
         // Add a script
         let scriptPath = tempDir.appendingPathComponent("new.kswitch.sh")
@@ -108,10 +109,11 @@ import Foundation
         ) { tasks in
             discoveredTasks = tasks
         }
-        watcher.start()
 
-        // Initially should have one task
+        // Initially should have one task from init scan
         #expect(discoveredTasks.count == 1)
+
+        watcher.start()
 
         // Delete the script
         try FileManager.default.removeItem(at: scriptPath)
@@ -142,10 +144,11 @@ import Foundation
         ) { tasks in
             discoveredTasks = tasks
         }
-        watcher.start()
 
         // Initially empty (directory doesn't exist)
         #expect(discoveredTasks.isEmpty)
+
+        watcher.start()
 
         // Create directory and add a script
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -163,5 +166,121 @@ import Foundation
 
         #expect(discoveredTasks.count == 1)
         watcher.stop()
+    }
+
+    @Test @MainActor func stopStopsPolling() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        var callCount = 0
+
+        let watcher = TasksWatcher(
+            directoryPath: tempDir.path,
+            pollInterval: .milliseconds(100)
+        ) { _ in
+            callCount += 1
+        }
+
+        // init triggers one synchronous callback
+        #expect(callCount == 1)
+
+        watcher.start()
+
+        // Add a script while polling is active
+        let scriptPath = tempDir.appendingPathComponent("test.kswitch.sh")
+        try "#!/bin/bash\necho hello".write(to: scriptPath, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath.path)
+
+        // Wait for polling to detect the change
+        for _ in 0..<5 {
+            try await Task.sleep(for: .milliseconds(150))
+            if callCount > 1 { break }
+        }
+        #expect(callCount == 2)
+
+        // Stop and add another script
+        watcher.stop()
+        let countAfterStop = callCount
+
+        let scriptPath2 = tempDir.appendingPathComponent("test2.kswitch.sh")
+        try "#!/bin/bash\necho world".write(to: scriptPath2, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath2.path)
+
+        // Wait and verify no new callbacks
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(callCount == countAfterStop)
+    }
+
+    @Test @MainActor func startRestartsPollingAfterStop() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        var discoveredTasks: [ScriptTask] = []
+
+        let watcher = TasksWatcher(
+            directoryPath: tempDir.path,
+            pollInterval: .milliseconds(100)
+        ) { tasks in
+            discoveredTasks = tasks
+        }
+
+        // Add a script while stopped (not polling yet)
+        let scriptPath = tempDir.appendingPathComponent("test.kswitch.sh")
+        try "#!/bin/bash\necho hello".write(to: scriptPath, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath.path)
+
+        try await Task.sleep(for: .milliseconds(300))
+        // init saw empty dir, no polling running
+        #expect(discoveredTasks.isEmpty)
+
+        // Start polling and wait for detection
+        watcher.start()
+        for _ in 0..<5 {
+            try await Task.sleep(for: .milliseconds(150))
+            if !discoveredTasks.isEmpty { break }
+        }
+
+        #expect(discoveredTasks.count == 1)
+        watcher.stop()
+    }
+
+    @Test @MainActor func initScansDirectoryWithoutPolling() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // Create script before init
+        let scriptPath = tempDir.appendingPathComponent("test.kswitch.sh")
+        try "#!/bin/bash\necho hello".write(to: scriptPath, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath.path)
+
+        var discoveredTasks: [ScriptTask] = []
+        var callCount = 0
+
+        let watcher = TasksWatcher(
+            directoryPath: tempDir.path,
+            pollInterval: .milliseconds(100)
+        ) { tasks in
+            discoveredTasks = tasks
+            callCount += 1
+        }
+        _ = watcher  // silence unused warning
+
+        // init found the task
+        #expect(discoveredTasks.count == 1)
+        #expect(callCount == 1)
+
+        // No polling — adding a file should not trigger callback
+        let scriptPath2 = tempDir.appendingPathComponent("test2.kswitch.sh")
+        try "#!/bin/bash\necho world".write(to: scriptPath2, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath2.path)
+
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(callCount == 1)
     }
 }

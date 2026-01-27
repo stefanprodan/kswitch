@@ -27,6 +27,8 @@ struct KSwitchApp: App {
                 #if ENABLE_SPARKLE
                 .environment(\.sparkleUpdater, sparkleUpdater)
                 #endif
+                .onAppear { appState.windowDidAppear() }
+                .onDisappear { appState.windowDidDisappear() }
                 .onReceive(NotificationCenter.default.publisher(for: .openMainWindow)) { _ in
                     openWindow(id: "main")
                     NSApplication.shared.activate(ignoringOtherApps: true)
@@ -47,10 +49,12 @@ struct KSwitchApp: App {
                 .onAppear {
                     // Show in Dock when window opens
                     NSApp.setActivationPolicy(.regular)
+                    appState.windowDidAppear()
                 }
                 .onDisappear {
                     // Hide from Dock when window closes
                     NSApp.setActivationPolicy(.accessory)
+                    appState.windowDidDisappear()
                 }
         }
         .windowStyle(.titleBar)

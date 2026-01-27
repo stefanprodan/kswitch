@@ -24,7 +24,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         notificationsEnabled: true,
         autoupdate: true,
         taskShellPath: nil,
-        tasksDirectory: nil,
+        tasksDirectory: "~/.kswitch/tasks",
         taskTimeoutMinutes: 5
     )
 
