@@ -4,8 +4,8 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 ## Project Overview
 
-KSwitch is a native macOS app for managing Kubernetes contexts and monitoring Flux Operator GitOps clusters.
-Built with SwiftUI, requires macOS 15+ and Swift 6.2+.
+KSwitch is a native macOS app for managing Kubernetes contexts, monitoring Flux Operator GitOps clusters,
+and running shell script tasks from the menu bar. Built with SwiftUI, requires macOS 15+ and Swift 6.2+.
 
 ## Build Commands
 
@@ -36,7 +36,7 @@ Sources/
 ```
 
 ### Domain Layer (`Sources/Domain/`)
-- Models: `Cluster`, `ClusterStatus`, `ClusterNode`, `FluxReport`, `AppSettings`, `KSwitchError`
+- Models: `Cluster`, `ClusterStatus`, `ClusterNode`, `FluxReport`, `ScriptTask`, `TaskRun`, `AppSettings`, `KSwitchError`
 - Protocols: `CommandRunner` (marked `@Mockable` for testing)
 - No SwiftUI imports - pure Swift with `Sendable` types
 
@@ -44,16 +44,18 @@ Sources/
 - `Shell/KubectlRunner` - Executes kubectl commands, uses `CommandRunner` protocol
 - `Shell/ShellEnvironment` - Gets PATH from user's login shell, finds executables via `which`
 - `Shell/DefaultCommandRunner` - Implements `CommandRunner` using `Process`
+- `Shell/TaskRunner` - Executes shell script tasks with PTY support via `/usr/bin/script`
 - `Platform/AppStorage` - Persists clusters and settings to disk
 - `Platform/KubeconfigWatcher` - Watches kubeconfig file for changes
+- `Platform/TasksWatcher` - Watches `.kswitch/tasks/` directory for `*.kswitch.sh` scripts
 - `Platform/NotificationAlerter` - macOS notifications
 - `Platform/AppLogger` - Unified logging via `os.Logger`
 
 ### App Layer (`Sources/App/`)
 - `AppState` - Main `@Observable` state container, orchestrates services
-- `Views/MenuBar/` - Menu bar popover UI (`MenuBarView`, `MenuBarSetupView`)
-- `Views/Main/` - Main window UI (clusters list, settings, details)
-- `Extensions/` - SwiftUI-specific extensions separated from Domain
+- `Views/MenuBar/` - Menu bar popover UI (`MenuBarView`, `MenuBarClusterRow`, `MenuBarTaskRow`)
+- `Views/Main/` - Main window UI (clusters list, tasks list, settings, details)
+- `Extensions/` - SwiftUI-specific extensions separated from Domain (`ANSIParser` for terminal output)
 
 ## Key Patterns
 
@@ -66,6 +68,11 @@ in Homebrew, nix-darwin, asdf, etc.
 
 **Actor Isolation**: Services like `KubectlRunner` and `ShellEnvironment` are `actor` types for thread safety.
 `AppState` is `@MainActor`.
+
+**Tasks**: Shell scripts in `.kswitch/tasks/*.kswitch.sh` are discovered by `TasksWatcher` and displayed
+in both the menu bar and main window. Scripts can define metadata (name, inputs) via comments.
+`TaskRunner` executes scripts with PTY support for interactive output. `ANSIParser` processes the
+output, stripping cursor control sequences and handling carriage returns to collapse spinner animations.
 
 ## Testing
 
