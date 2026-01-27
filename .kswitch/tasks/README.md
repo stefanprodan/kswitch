@@ -23,7 +23,7 @@ ln -s /path/to/your/scripts ~/.kswitch/tasks
 
 ## Naming Convention
 
-You can set a custom display name and description using comments:
+You can set a custom display name and description using comments inside the script:
 
 ```bash
 # KSWITCH_TASK: My Custom Task Name
@@ -44,7 +44,8 @@ Define inputs in comment headers within the first 100 lines of the script.
 # KSWITCH_INPUT: VAR_NAME "Description of the input"
 ```
 
-KSwitch will prompt for required inputs before running the script.
+Running a task from the menu bar that contains required inputs, will
+make KSwitch open the main window to prompt for the necessary values.
 
 ### Optional Inputs
 
@@ -52,7 +53,11 @@ KSwitch will prompt for required inputs before running the script.
 # KSWITCH_INPUT_OPT: VAR_NAME "Description of the input (default: some-default)"
 ```
 
-The script should handle optional inputs by providing defaults, typically using bash parameter expansion.
+The script should handle optional inputs by providing defaults,
+typically using bash parameter expansion.
+
+Running a task from the menu bar that contains only optional inputs will
+not prompt for any values before execution.
 
 ## Environment
 
