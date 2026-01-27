@@ -16,6 +16,10 @@ struct MenuBarView: View {
 
     @State private var isTaskSearching: Bool = false
     @State private var taskSearchText: String = ""
+    @State private var taskSearchFixedCount: Int = 0
+    @State private var isClusterSearching: Bool = false
+    @State private var clusterSearchText: String = ""
+    @State private var clusterSearchFixedCount: Int = 0
 
     private var needsSetup: Bool {
         appState.error != nil
@@ -27,6 +31,16 @@ struct MenuBarView: View {
         }
         return appState.tasks.filter {
             $0.name.localizedCaseInsensitiveContains(taskSearchText)
+        }
+    }
+
+    private var filteredClusters: [Cluster] {
+        let activeClusters = appState.visibleClusters.filter { $0.isInKubeconfig }
+        if clusterSearchText.isEmpty {
+            return activeClusters
+        }
+        return activeClusters.filter {
+            $0.effectiveName.localizedCaseInsensitiveContains(clusterSearchText)
         }
     }
 
@@ -254,37 +268,67 @@ struct MenuBarView: View {
     // MARK: - Cluster List
 
     private var clusterListSection: some View {
-        let activeClusters = appState.visibleClusters.filter { $0.isInKubeconfig }
+        let activeClusters = filteredClusters
         let favorites = activeClusters.filter { $0.isFavorite }.sorted { $0.effectiveName < $1.effectiveName }
         let nonFavorites = activeClusters.filter { !$0.isFavorite }.sorted { $0.effectiveName < $1.effectiveName }
         let removedClusters = appState.visibleClusters.filter { !$0.isInKubeconfig }
 
-        return ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 2) {
-                // Favorites first
-                ForEach(favorites) { cluster in
-                    MenuBarClusterRow(cluster: cluster)
+        // Calculate total count from unfiltered list
+        let totalCount = appState.visibleClusters.filter { $0.isInKubeconfig }.count
+
+        return VStack(alignment: .leading, spacing: 8) {
+            // Header with count and search
+            HStack {
+                if isClusterSearching {
+                    MenuBarClusterSearchField(text: $clusterSearchText)
+                } else {
+                    Text(totalCount > 3 ? "Clusters (\(totalCount))" : "Clusters")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
 
-                // Then non-favorites
-                ForEach(nonFavorites) { cluster in
-                    MenuBarClusterRow(cluster: cluster)
-                }
+                Spacer()
 
-                // Removed clusters (grayed out)
-                if !removedClusters.isEmpty {
-                    Divider()
-                        .padding(.vertical, 4)
-                    ForEach(removedClusters) { cluster in
+                Button {
+                    if !isClusterSearching {
+                        clusterSearchFixedCount = min(totalCount, 5)
+                    } else {
+                        clusterSearchText = ""
+                    }
+                    isClusterSearching.toggle()
+                } label: {
+                    Image(systemName: isClusterSearching ? "xmark.circle.fill" : "magnifyingglass")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(height: 16)
+            .padding(.horizontal, 8)
+
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 2) {
+                    ForEach(favorites) { cluster in
                         MenuBarClusterRow(cluster: cluster)
-                            .opacity(0.5)
-                            .disabled(true)
+                    }
+                    ForEach(nonFavorites) { cluster in
+                        MenuBarClusterRow(cluster: cluster)
+                    }
+                    if !removedClusters.isEmpty && !isClusterSearching {
+                        Divider()
+                            .padding(.vertical, 4)
+                        ForEach(removedClusters) { cluster in
+                            MenuBarClusterRow(cluster: cluster)
+                                .opacity(0.5)
+                                .disabled(true)
+                        }
                     }
                 }
             }
-            .padding(.horizontal, 16)
+            .frame(height: isClusterSearching ? CGFloat(clusterSearchFixedCount) * 34.8 : nil, alignment: .top)
+            .frame(maxHeight: 174)
         }
-        .frame(maxHeight: 165)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Tasks Section
@@ -303,10 +347,12 @@ struct MenuBarView: View {
                 Spacer()
 
                 Button {
-                    isTaskSearching.toggle()
                     if !isTaskSearching {
+                        taskSearchFixedCount = min(appState.tasks.count, 3)
+                    } else {
                         taskSearchText = ""
                     }
+                    isTaskSearching.toggle()
                 } label: {
                     Image(systemName: isTaskSearching ? "xmark.circle.fill" : "magnifyingglass")
                         .font(.system(size: 11))
@@ -324,7 +370,7 @@ struct MenuBarView: View {
                     }
                 }
             }
-            .frame(height: isTaskSearching ? 100 : nil, alignment: .top)
+            .frame(height: isTaskSearching ? min(CGFloat(taskSearchFixedCount) * 32 + CGFloat(max(taskSearchFixedCount - 1, 0)) * 4, 100) : nil, alignment: .top)
             .frame(maxHeight: 100)
         }
     }
