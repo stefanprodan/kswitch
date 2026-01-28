@@ -1,13 +1,15 @@
 # KSwitch
 
+[![install](https://img.shields.io/badge/Install-KSwitch.dmg-blue.svg)](https://github.com/stefanprodan/kswitch/releases/latest/download/KSwitch.dmg)
 [![release](https://img.shields.io/github/release/stefanprodan/kswitch/all.svg)](https://github.com/stefanprodan/kswitch/releases)
 [![test](https://github.com/stefanprodan/kswitch/actions/workflows/test.yaml/badge.svg)](https://github.com/stefanprodan/kswitch/actions/workflows/test.yaml)
 [![platform](https://img.shields.io/badge/Platform-macOS%2015-blue.svg)](https://developer.apple.com)
-[![install](https://img.shields.io/badge/Install-KSwitch-blue.svg)](https://stefanprodan.github.io/kswitch/)
 [![license](https://img.shields.io/github/license/stefanprodan/kswitch.svg)](https://github.com/stefanprodan/kswitch/blob/main/LICENSE)
 
 KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 [Flux Operator](https://fluxoperator.dev) GitOps clusters directly from the menu bar.
+It also provides a task runner for automating common Kubernetes workflows
+with shell scripts, input parameters, and real-time output.
 
 <p align="center">
   <img src="docs/screenshots/kswitch-banner.png" alt="KSwitch Dark Mode" width="100%"/>
@@ -20,6 +22,7 @@ KSwitch is a native macOS app for managing Kubernetes contexts and monitoring
 - **GitOps Monitoring** - Displays Flux Operator version, cluster sync status, and reconciler status
 - **Organization** - Mark clusters as favorites, hide unused ones, customize display names and colors
 - **Notifications** - Get notified when clusters become degraded or Flux reconcilers fail
+- **Automation** - Run shell scripts from the menu bar with input parameters and real-time output
 
 ## Installation
 
@@ -65,6 +68,7 @@ In the Settings view, you can customize:
 - Kubeconfig file path, including support for multiple files delimited by `:` (e.g. `~/.kube/config:~/.kube/other`)
 - Kubectl binary path
 - Auto-refresh interval for clusters and Flux status
+- Tasks directory path (e.g. `~/.kswitch/tasks/`)
 - Notification preferences
 - Auto-start on login and auto-update options
 
@@ -98,6 +102,22 @@ but marked as removed. You can delete them permanently from the details view.
 
 The cluster customizations are persisted at
 `~/Library/Application Support/KSwitch/clusters.json`.
+
+### Task Runner
+
+KSwitch can run shell scripts directly from the menu bar and main window,
+making it easy to automate common Kubernetes workflows without switching to the terminal.
+
+Use cases:
+- Create and delete local Kind clusters with a single click
+- Trigger Flux reconciliations for GitOps deployments
+- Run kubectl commands with predefined parameters
+- Execute any custom automation task you need
+
+Tasks support input parameters, so you can reuse the same script with different values.
+The output is displayed in real-time within the app, with support for colored terminal output.
+
+For task development and examples, see the [KSwitch Tasks documentation](.kswitch/tasks/README.md).
 
 ### Notifications
 
