@@ -38,6 +38,9 @@ final class AppState {
     private var refreshTask: Task<Void, Never>?
     private var isBackgroundRefreshEnabled: Bool = true
 
+    // Window visibility tracking
+    private var visibleWindowCount: Int = 0
+
     // Services (not observed)
     @ObservationIgnored
     private var _kubectl: KubectlRunner?
@@ -377,6 +380,20 @@ final class AppState {
 
     // MARK: - Tasks Management
 
+    func windowDidAppear() {
+        visibleWindowCount += 1
+        if visibleWindowCount == 1 {
+            _tasksWatcher?.start()
+        }
+    }
+
+    func windowDidDisappear() {
+        visibleWindowCount = max(0, visibleWindowCount - 1)
+        if visibleWindowCount == 0 {
+            _tasksWatcher?.stop()
+        }
+    }
+
     func setupTasksWatcher() {
         _tasksWatcher?.stop()
 
@@ -388,7 +405,9 @@ final class AppState {
         _tasksWatcher = TasksWatcher(directoryPath: tasksDirectory) { [weak self] discoveredTasks in
             self?.tasks = discoveredTasks
         }
-        _tasksWatcher?.start()
+        if visibleWindowCount > 0 {
+            _tasksWatcher?.start()
+        }
     }
 
     private func startOutputThrottling() {

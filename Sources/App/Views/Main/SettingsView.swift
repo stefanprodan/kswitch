@@ -39,18 +39,6 @@ struct SettingsView: View {
         FileManager.default.fileExists(atPath: kubectlPath)
     }
 
-    private var expandedTasksDirectory: String {
-        if tasksDirectory.hasPrefix("~") {
-            return NSHomeDirectory() + tasksDirectory.dropFirst()
-        }
-        return tasksDirectory
-    }
-
-    private var isTasksDirectoryValid: Bool {
-        !tasksDirectory.isEmpty &&
-        FileManager.default.fileExists(atPath: expandedTasksDirectory)
-    }
-
     var body: some View {
         @Bindable var state = appState
 
@@ -132,7 +120,7 @@ struct SettingsView: View {
                     Button("Save") {
                         saveTaskSettings()
                     }
-                    .disabled(!isTasksDirectoryValid && !tasksDirectory.isEmpty)
+                    .disabled(tasksDirectory.isEmpty)
                 }
             }
             .onAppear {
@@ -245,14 +233,14 @@ struct SettingsView: View {
             Text("Not configured")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-        } else if isTasksDirectoryValid {
-            Text("✓ Valid")
+        } else if appState.tasks.isEmpty {
+            Text("No tasks defined")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("✓ \(appState.tasks.count) task\(appState.tasks.count == 1 ? "" : "s") found")
                 .font(.caption)
                 .foregroundStyle(.green)
-        } else {
-            Text("⚠ Directory not found")
-                .font(.caption)
-                .foregroundStyle(.orange)
         }
     }
 }
