@@ -53,7 +53,6 @@ struct ClusterDetailView: View {
                 } label: {
                     Image(systemName: "trash")
                 }
-                .buttonStyle(.borderless)
                 .opacity(cluster.isInKubeconfig ? 0 : 1)
                 .disabled(cluster.isInKubeconfig)
                 .help("Delete cluster from saved list")
@@ -65,7 +64,6 @@ struct ClusterDetailView: View {
                 } label: {
                     Image(systemName: "pencil")
                 }
-                .buttonStyle(.borderless)
                 .help("Edit cluster")
             }
 
@@ -84,7 +82,6 @@ struct ClusterDetailView: View {
                         }
                         .frame(width: 16, height: 16)
                 }
-                .buttonStyle(.borderless)
                 .disabled(!cluster.isInKubeconfig || appState.refreshingContexts.contains(cluster.contextName))
                 .help("Refresh cluster status")
             }

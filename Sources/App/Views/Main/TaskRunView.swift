@@ -76,7 +76,6 @@ struct TaskRunView: View {
                 } label: {
                     Image(systemName: "folder")
                 }
-                .buttonStyle(.borderless)
                 .help("Reveal in Finder")
             }
         }

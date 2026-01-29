@@ -59,7 +59,6 @@ struct MainWindow: View {
                     }) {
                         Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
                     }
-                    .buttonStyle(.borderless)
                     .opacity(selectedItem == .clusters || selectedItem == .tasks ? 1 : 0)
                     .disabled(!(selectedItem == .clusters || selectedItem == .tasks))
                 }
@@ -81,7 +80,6 @@ struct MainWindow: View {
                                 }
                                 .frame(width: 16, height: 16)
                         }
-                        .buttonStyle(.borderless)
                         .disabled(appState.isRefreshing)
                         .help("Refresh all clusters")
                     }
