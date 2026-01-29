@@ -254,15 +254,8 @@
     .feature-card {
       padding: 24px;
       background: var(--bg-card);
-      backdrop-filter: blur(12px);
       border: 1px solid var(--white-5);
       border-radius: 16px;
-      transition: all 0.3s ease;
-    }
-    .feature-card:hover {
-      transform: translateY(-4px);
-      border-color: var(--white-10);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.3), 0 0 30px var(--glow-brand);
     }
     .feature-header {
       display: flex;
@@ -718,15 +711,34 @@
     </div>
   </section>
 
-  <!-- Feature: Settings -->
+  <!-- Feature: Task Runner -->
   <section class="feature-section">
     <div class="feature-content">
       <div class="feature-text">
+        <p class="section-label">Automation</p>
+        <h2>Task Runner</h2>
+        <p>Execute shell scripts directly from the menu bar. Automate common Kubernetes workflows with required and optional input parameters.</p>
+        <ul class="feature-list">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Write your own scripts in ~/.kswitch/tasks/</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Define input parameters for reusable scripts</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Real-time output with ANSI color support</li>
+        </ul>
+      </div>
+      <div class="feature-visual">
+        <img src="screenshots/kswitch-task-runner.png" alt="KSwitch Task Runner" class="feature-img lightbox-trigger" loading="lazy" decoding="async">
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature: Settings -->
+  <section class="feature-section">
+    <div class="feature-content reverse">
+      <div class="feature-text">
         <p class="section-label">Settings</p>
         <h2>Fully configurable</h2>
-        <p>Customize paths, refresh intervals, and notification preferences. Support for multiple kubeconfig files.</p>
+        <p>Customize paths, refresh intervals, notification preferences, and task directory with your own scripts. Support for multiple kubeconfig files.</p>
         <ul class="feature-list">
-          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Custom kubectl path</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Custom kubectl and tasks directory paths</li>
           <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Configurable refresh intervals</li>
           <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></span>Auto-start on login</li>
         </ul>
