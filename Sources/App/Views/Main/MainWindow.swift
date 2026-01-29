@@ -13,6 +13,10 @@ struct MainWindow: View {
     @State private var isSearching: Bool = false
     @State private var isProgrammaticNavigation: Bool = false
 
+    private var showsListView: Bool {
+        selectedItem == .clusters || selectedItem == .tasks
+    }
+
     var body: some View {
         NavigationSplitView {
             Sidebar(selection: $selectedItem)
@@ -27,49 +31,43 @@ struct MainWindow: View {
                     }
             }
             .toolbar {
-                ToolbarItem(id: "main-back", placement: .navigation) {
-                    Button(action: { goBack() }) {
-                        Image(systemName: "chevron.left")
-                    }
-                    .opacity(navigationPath.isEmpty ? 0 : 1)
-                    .disabled(navigationPath.isEmpty)
-                }
-
-                ToolbarItem(id: "main-search-field", placement: .automatic) {
-                    FocusableTextField(
-                        placeholder: selectedItem == .clusters ? "Search clusters" : "Search tasks",
-                        text: $searchText,
-                        isFocused: isSearching
-                    )
-                    .frame(width: 180)
-                    .onExitCommand {
-                        isSearching = false
-                        searchText = ""
-                    }
-                    .opacity((selectedItem == .clusters || selectedItem == .tasks) && isSearching ? 1 : 0)
-                    .frame(width: (selectedItem == .clusters || selectedItem == .tasks) && isSearching ? 180 : 0)
-                }
-
-                ToolbarItem(id: "main-search-toggle", placement: .automatic) {
-                    Button(action: {
-                        isSearching.toggle()
-                        if !isSearching {
-                            searchText = ""
+                ToolbarItemGroup(placement: .navigation) {
+                    if !navigationPath.isEmpty {
+                        Button(action: { goBack() }) {
+                            Image(systemName: "chevron.left")
                         }
-                    }) {
-                        Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
                     }
-                    .opacity(selectedItem == .clusters || selectedItem == .tasks ? 1 : 0)
-                    .disabled(!(selectedItem == .clusters || selectedItem == .tasks))
                 }
 
-                // Only show refresh button for clusters section
-                if selectedItem == .clusters {
-                    ToolbarItem(id: "main-refresh", placement: .automatic) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    if showsListView && isSearching {
+                        FocusableTextField(
+                            placeholder: selectedItem == .clusters ? "Search clusters" : "Search tasks",
+                            text: $searchText,
+                            shouldFocus: true,
+                            onEscape: {
+                                isSearching = false
+                                searchText = ""
+                            }
+                        )
+                        .frame(width: 180)
+                    }
+
+                    if showsListView {
+                        Button {
+                            isSearching.toggle()
+                            if !isSearching {
+                                searchText = ""
+                            }
+                        } label: {
+                            Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
+                        }
+                    }
+
+                    if selectedItem == .clusters {
                         Button {
                             Task { await appState.refreshAllStatuses() }
                         } label: {
-                            // Use consistent view type to avoid toolbar layout thrashing
                             Image(systemName: "arrow.clockwise")
                                 .opacity(appState.isRefreshing ? 0 : 1)
                                 .overlay {
@@ -241,12 +239,13 @@ struct MainWindow: View {
     }
 }
 
-// MARK: - Focusable TextField
+// MARK: - Focusable TextField (NSViewRepresentable for reliable focus in toolbar)
 
 struct FocusableTextField: NSViewRepresentable {
     let placeholder: String
     @Binding var text: String
-    var isFocused: Bool
+    var shouldFocus: Bool
+    var onEscape: () -> Void
 
     func makeNSView(context: Context) -> NSTextField {
         let textField = NSTextField()
@@ -258,14 +257,13 @@ struct FocusableTextField: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSTextField, context: Context) {
-        // Only update text if it differs to avoid cursor jumping
         if nsView.stringValue != text {
             nsView.stringValue = text
         }
         nsView.placeholderString = placeholder
 
-        // Only focus once when first appearing
-        if isFocused && !context.coordinator.hasFocused {
+        // Focus when first appearing
+        if shouldFocus && !context.coordinator.hasFocused {
             context.coordinator.hasFocused = true
             DispatchQueue.main.async {
                 nsView.window?.makeFirstResponder(nsView)
@@ -289,5 +287,14 @@ struct FocusableTextField: NSViewRepresentable {
             guard let textField = notification.object as? NSTextField else { return }
             parent.text = textField.stringValue
         }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+                parent.onEscape()
+                return true
+            }
+            return false
+        }
     }
 }
+
