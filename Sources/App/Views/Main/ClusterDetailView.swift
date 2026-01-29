@@ -45,33 +45,28 @@ struct ClusterDetailView: View {
         }
         .navigationTitle("Cluster")
         .toolbar {
-            // Delete button - only shown for clusters not in kubeconfig
-            ToolbarItem(id: "detail-delete", placement: .automatic) {
-                Button {
-                    appState.deleteCluster(cluster)
-                    dismiss()
-                } label: {
-                    Image(systemName: "trash")
+            ToolbarItemGroup(placement: .primaryAction) {
+                // Delete button - only shown for clusters not in kubeconfig
+                if !cluster.isInKubeconfig {
+                    Button {
+                        appState.deleteCluster(cluster)
+                        dismiss()
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .help("Delete cluster from saved list")
                 }
-                .opacity(cluster.isInKubeconfig ? 0 : 1)
-                .disabled(cluster.isInKubeconfig)
-                .help("Delete cluster from saved list")
-            }
 
-            ToolbarItem(id: "detail-edit", placement: .automatic) {
                 Button {
                     showingEditSheet = true
                 } label: {
                     Image(systemName: "pencil")
                 }
                 .help("Edit cluster")
-            }
 
-            ToolbarItem(id: "detail-refresh", placement: .automatic) {
                 Button {
                     Task { await appState.refreshStatus(for: cluster.contextName) }
                 } label: {
-                    // Use consistent view type to avoid toolbar layout thrashing
                     Image(systemName: "arrow.clockwise")
                         .opacity(appState.refreshingContexts.contains(cluster.contextName) ? 0 : 1)
                         .overlay {

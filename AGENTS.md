@@ -7,12 +7,19 @@ This file provides guidance to AI Agents when working with code in this reposito
 KSwitch is a native macOS app for managing Kubernetes contexts, monitoring Flux Operator GitOps clusters,
 and running shell script tasks from the menu bar. Built with SwiftUI, requires macOS 15+ and Swift 6.2+.
 
+## Primary Command
+
+When working on a feature or bugfix, use the following command to build and run the app in debug mode:
+
+```bash
+make dev
+```
+
 ## Build Commands
 
 ```bash
 make build        # Build debug binary only
 make test         # Run all tests (requires Xcode toolchain for Swift Testing)
-make dev          # Build and launch in debug mode (fast iteration, no Sparkle)
 make run          # Build and launch in production mode (release build, Sparkle enabled)
 make clean        # Remove build artifacts and .app bundle
 make reset        # Delete app settings from ~/Library/Application Support/KSwitch
